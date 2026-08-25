@@ -1,6 +1,6 @@
 version: "3.8"
 
-# Local stand-in for `supabase start` — same Postgres, same migrations folder,
+# Local stand-in for `supabase start` - same Postgres, same migrations folder,
 # so the schema in supabase/migrations is what you'd hand to a real Supabase
 # project without changes.
 services:

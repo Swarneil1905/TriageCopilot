@@ -5,7 +5,7 @@ import { RiskBadge } from "@/components/RiskBadge";
 import { NewPatientForm } from "@/components/NewPatientForm";
 
 function lastUpdated(patient: PatientWorldState): string {
-  if (patient.events.length === 0) return "—";
+  if (patient.events.length === 0) return "-";
   const last = patient.events[patient.events.length - 1];
   return new Date(last.createdAt).toLocaleString();
 }

@@ -50,7 +50,7 @@ export function AgentReasoningPanel({ events }: { events: DomainEvent[] }) {
               key={event.id}
               className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-800"
             >
-              <span className="font-medium">Retry #{i + 1}:</span> LLM call failed — {p.error ?? "unknown error"}
+              <span className="font-medium">Retry #{i + 1}:</span> LLM call failed - {p.error ?? "unknown error"}
               {p.escalated ? " (escalated, retries exhausted)" : " (will retry)"}
             </li>
           );
