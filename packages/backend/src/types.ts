@@ -55,3 +55,10 @@ export class InvariantViolationError extends Error {
     this.name = "InvariantViolationError";
   }
 }
+
+export class PatientNotFoundError extends Error {
+  constructor(patientId: string) {
+    super(`Patient ${patientId} not found`);
+    this.name = "PatientNotFoundError";
+  }
+}

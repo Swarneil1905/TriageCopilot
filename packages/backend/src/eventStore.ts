@@ -1,7 +1,7 @@
 import type { Pool } from "pg";
 import { randomUUID } from "node:crypto";
 import { assertValidAppend, projectPatientState } from "./stateMachine.js";
-import { ActorType, DomainEvent, EventType, PatientWorldState } from "./types.js";
+import { ActorType, DomainEvent, EventType, PatientNotFoundError, PatientWorldState } from "./types.js";
 
 function rowToEvent(row: any): DomainEvent {
   return {
@@ -160,6 +160,6 @@ export async function listPatientsWithState(pool: Pool): Promise<PatientWorldSta
 
 export async function getDisplayName(pool: Pool, patientId: string): Promise<string> {
   const { rows } = await pool.query(`select display_name from patients where id = $1`, [patientId]);
-  if (rows.length === 0) throw new Error(`Patient ${patientId} not found`);
+  if (rows.length === 0) throw new PatientNotFoundError(patientId);
   return rows[0].display_name as string;
 }
