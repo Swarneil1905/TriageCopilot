@@ -184,7 +184,7 @@ Each task below is scoped to be one reviewable commit. Suggested order top to bo
 
 1. **Repo scaffold** — workspaces `package.json`, `docker-compose.yml`, `supabase/migrations/0001_init.sql`, `.env.example`. ✅ Done.
 2. **Event store & state machine** — `types.ts`, `db.ts`, `eventStore.ts`, `stateMachine.ts` + unit tests for every invariant. ✅ Done — 12/12 vitest tests passing (pure, no DB required), plus a real-Postgres smoke script (`scripts/smoke.ts`) verifying the transactional write path end to end. One real bug caught and fixed by the tests: `assertValidAppend` originally rejected `PatientCreated` unconditionally instead of only when it wasn't genuinely the first event.
-3. **Agent tools & LLM provider** — `tools.ts`, `llmProvider.ts` (`FakeProvider` + `AnthropicProvider`) + unit tests against the fake.
+3. **Agent tools & LLM provider** — `tools.ts`, `llmProvider.ts` (`FakeProvider` + `AnthropicProvider`) + unit tests against the fake. ✅ Done — 9 new tests (21 total passing). `AnthropicProvider` dynamic-imports the SDK so the fake-only path never needs it installed at runtime; verified the SDK actually resolves in this environment.
 4. **Triage agent orchestrator** — `triageAgent.ts`: the tool loop, retry/backoff, forced-handoff guarantee, escalation on repeated failure + tests for both guardrail scenarios.
 5. **REST API** — Fastify server + all routes in §10 + one integration smoke test against real Postgres.
 6. **Seed script** — synthetic patients: one normal end-to-end, one high-risk (urgent path), one agent-failure-then-retry, one fresh/untouched intake.
