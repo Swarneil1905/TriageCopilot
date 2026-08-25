@@ -1,0 +1,19 @@
+{
+  "name": "triage-copilot",
+  "private": true,
+  "description": "Mini prototype of an AI-native psychiatric care ops platform: event-sourced patient journey + LLM triage agent with human-in-the-loop guardrails. Synthetic data only.",
+  "workspaces": [
+    "packages/backend",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "backend:build": "npm run build -w packages/backend",
+    "backend:test": "npm run test -w packages/backend",
+    "backend:seed": "npm run seed -w packages/backend",
+    "backend:dev": "npm run dev -w packages/backend",
+    "frontend:dev": "npm run dev -w packages/frontend",
+    "frontend:build": "npm run build -w packages/frontend"
+  }
+}

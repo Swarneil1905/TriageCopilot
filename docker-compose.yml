@@ -1,0 +1,26 @@
+version: "3.8"
+
+# Local stand-in for `supabase start` — same Postgres, same migrations folder,
+# so the schema in supabase/migrations is what you'd hand to a real Supabase
+# project without changes.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: triage_copilot
+      POSTGRES_PASSWORD: triage_copilot
+      POSTGRES_DB: triage_copilot
+    ports:
+      - "54329:5432"
+    volumes:
+      - triage_copilot_db:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U triage_copilot -d triage_copilot"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  triage_copilot_db:
