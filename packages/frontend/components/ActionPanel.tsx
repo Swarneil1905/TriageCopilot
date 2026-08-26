@@ -13,7 +13,7 @@ import {
 
 function ErrorText({ message }: { message: string | null }) {
   if (!message) return null;
-  return <p className="mt-2 text-sm text-red-600">{message}</p>;
+  return <p className="mt-2 text-sm text-rose-600">{message}</p>;
 }
 
 function SubmitButton({ pending, children }: { pending: boolean; children: React.ReactNode }) {
@@ -21,7 +21,7 @@ function SubmitButton({ pending, children }: { pending: boolean; children: React
     <button
       type="submit"
       disabled={pending}
-      className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+      className="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {pending ? "Working…" : children}
     </button>
@@ -55,34 +55,34 @@ function IntakeForm({ patientId }: { patientId: string }) {
   return (
     <form onSubmit={onSubmit} className="space-y-2">
       <label className="block text-sm">
-        <span className="text-slate-700">Chief complaint</span>
+        <span className="text-stone-700">Chief complaint</span>
         <textarea
           name="chief_complaint"
           required
           rows={2}
-          className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          className="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
           placeholder="What brought the patient in today?"
         />
       </label>
       <div className="flex gap-3">
         <label className="block text-sm">
-          <span className="text-slate-700">PHQ-9</span>
+          <span className="text-stone-700">PHQ-9</span>
           <input
             name="phq9_score"
             type="number"
             min={0}
             max={27}
-            className="mt-1 block w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            className="mt-1 block w-20 rounded-md border border-stone-300 px-2 py-1.5 text-sm"
           />
         </label>
         <label className="block text-sm">
-          <span className="text-slate-700">GAD-7</span>
+          <span className="text-stone-700">GAD-7</span>
           <input
             name="gad7_score"
             type="number"
             min={0}
             max={21}
-            className="mt-1 block w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            className="mt-1 block w-20 rounded-md border border-stone-300 px-2 py-1.5 text-sm"
           />
         </label>
       </div>
@@ -116,7 +116,7 @@ function RunTriageButton({ patientId }: { patientId: string }) {
         type="button"
         onClick={onClick}
         disabled={pending}
-        className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-md bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? "Running triage agent…" : "Run triage agent"}
       </button>
@@ -152,20 +152,20 @@ function ClinicianDecisionForm({ patientId }: { patientId: string }) {
   return (
     <form onSubmit={onSubmit} className="space-y-2">
       <label className="block text-sm">
-        <span className="text-slate-700">Your name</span>
+        <span className="text-stone-700">Your name</span>
         <input
           name="clinician_name"
           required
-          className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          className="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
           placeholder="Dr. ..."
         />
       </label>
       <label className="block text-sm">
-        <span className="text-slate-700">Decision</span>
+        <span className="text-stone-700">Decision</span>
         <select
           name="decision"
           required
-          className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          className="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
         >
           <option value="approved">Approve the agent&apos;s draft</option>
           <option value="modified">Approve with modifications</option>
@@ -173,11 +173,11 @@ function ClinicianDecisionForm({ patientId }: { patientId: string }) {
         </select>
       </label>
       <label className="block text-sm">
-        <span className="text-slate-700">Note</span>
+        <span className="text-stone-700">Note</span>
         <textarea
           name="note"
           rows={2}
-          className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+          className="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
           placeholder="Optional clinical note"
         />
       </label>
@@ -214,20 +214,20 @@ function ScheduleFollowUpForm({ patientId }: { patientId: string }) {
     <form onSubmit={onSubmit} className="space-y-2">
       <div className="flex gap-3">
         <label className="block text-sm">
-          <span className="text-slate-700">Date</span>
+          <span className="text-stone-700">Date</span>
           <input
             name="date"
             type="date"
             required
-            className="mt-1 block rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            className="mt-1 block rounded-md border border-stone-300 px-2 py-1.5 text-sm"
           />
         </label>
         <label className="block text-sm">
-          <span className="text-slate-700">Method</span>
+          <span className="text-stone-700">Method</span>
           <select
             name="method"
             required
-            className="mt-1 block rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+            className="mt-1 block rounded-md border border-stone-300 px-2 py-1.5 text-sm"
           >
             <option value="video">Video</option>
             <option value="phone">Phone</option>
@@ -255,7 +255,7 @@ export function ActionPanel({ patient }: { patient: PatientWorldState }) {
     case "clinician_rejected":
       return <RunTriageButton patientId={patient.patientId} />;
     case "triage_in_progress":
-      return <p className="text-sm text-slate-500">Triage agent is running…</p>;
+      return <p className="text-sm text-stone-500">Triage agent is running…</p>;
     case "pending_clinician_review":
     case "urgent_review":
       return <ClinicianDecisionForm patientId={patient.patientId} />;
@@ -263,7 +263,7 @@ export function ActionPanel({ patient }: { patient: PatientWorldState }) {
       return <ScheduleFollowUpForm patientId={patient.patientId} />;
     case "follow_up_scheduled":
       return (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-stone-500">
           This care cycle is complete. Nothing further to action.
         </p>
       );

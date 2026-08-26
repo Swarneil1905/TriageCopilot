@@ -20,7 +20,7 @@ export function AgentReasoningPanel({ events }: { events: DomainEvent[] }) {
 
   if (!runId) {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-stone-500">
         No triage run yet -- this is where the agent&apos;s tool-by-tool reasoning trace will
         show up once a run kicks off.
       </p>
@@ -31,7 +31,7 @@ export function AgentReasoningPanel({ events }: { events: DomainEvent[] }) {
   const errors = events.filter((e) => e.type === "AgentErrorOccurred" && e.runId === runId);
 
   if (toolCalls.length === 0 && errors.length === 0) {
-    return <p className="text-sm text-slate-500">Triage agent is running -- no tool calls logged yet.</p>;
+    return <p className="text-sm text-stone-500">Triage agent is running -- no tool calls logged yet.</p>;
   }
 
   // Interleave by original event order rather than re-sorting, so retries
@@ -48,7 +48,7 @@ export function AgentReasoningPanel({ events }: { events: DomainEvent[] }) {
           return (
             <li
               key={event.id}
-              className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-800"
+              className="rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-800"
             >
               <span className="font-medium">Retry #{i + 1}:</span> LLM call failed - {p.error ?? "unknown error"}
               {p.escalated ? " (escalated, retries exhausted)" : " (will retry)"}
@@ -57,18 +57,18 @@ export function AgentReasoningPanel({ events }: { events: DomainEvent[] }) {
         }
         const p = event.payload as ToolCallPayload;
         return (
-          <li key={event.id} className="rounded-md border border-slate-200 bg-white p-2 text-xs">
-            <div className="font-medium text-slate-900">{p.tool_name ?? "unknown_tool"}</div>
+          <li key={event.id} className="rounded-md border border-stone-200 bg-white p-2 text-xs">
+            <div className="font-medium text-stone-900">{p.tool_name ?? "unknown_tool"}</div>
             {p.input !== undefined && (
               <div className="mt-1">
-                <span className="text-slate-500">input:</span>{" "}
-                <code className="text-slate-700">{JSON.stringify(p.input)}</code>
+                <span className="text-stone-500">input:</span>{" "}
+                <code className="text-stone-700">{JSON.stringify(p.input)}</code>
               </div>
             )}
             {p.output !== undefined && (
               <div className="mt-1">
-                <span className="text-slate-500">output:</span>{" "}
-                <code className="text-slate-700">{JSON.stringify(p.output)}</code>
+                <span className="text-stone-500">output:</span>{" "}
+                <code className="text-stone-700">{JSON.stringify(p.output)}</code>
               </div>
             )}
           </li>

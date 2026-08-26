@@ -30,7 +30,7 @@ export function NewPatientForm() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+        className="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700"
       >
         + New synthetic patient
       </button>
@@ -44,23 +44,23 @@ export function NewPatientForm() {
         required
         autoFocus
         placeholder="e.g. Taylor Nguyen (synthetic)"
-        className="rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+        className="rounded-md border border-stone-300 px-2 py-1.5 text-sm"
       />
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+        className="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700 disabled:opacity-50"
       >
         {pending ? "Creating…" : "Create"}
       </button>
       <button
         type="button"
         onClick={() => setOpen(false)}
-        className="rounded-md px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700"
+        className="rounded-md px-3 py-1.5 text-sm text-stone-500 hover:text-stone-700"
       >
         Cancel
       </button>
-      {error && <p className="w-full text-sm text-red-600">{error}</p>}
+      {error && <p className="w-full text-sm text-rose-600">{error}</p>}
     </form>
   );
 }

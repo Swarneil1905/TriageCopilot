@@ -1,84 +1,126 @@
 import Link from "next/link";
-import { getPatients, type PatientWorldState } from "@/lib/api";
-import { StatusBadge } from "@/components/StatusBadge";
-import { RiskBadge } from "@/components/RiskBadge";
-import { NewPatientForm } from "@/components/NewPatientForm";
+import { getPatients } from "@/lib/api";
 
-function lastUpdated(patient: PatientWorldState): string {
-  if (patient.events.length === 0) return "-";
-  const last = patient.events[patient.events.length - 1];
-  return new Date(last.createdAt).toLocaleString();
-}
+const PRINCIPLES = [
+  {
+    title: "Events are the only source of truth",
+    body:
+      "Every status, risk level, and clinician note is a pure fold over an append-only event log, not a mutable row. Replay the log to any timestamp and you get an exact reconstruction of what the system believed at that moment.",
+  },
+  {
+    title: "The agent can't finalize anything, structurally",
+    body:
+      "The triage agent is asked, in its system prompt, to always hand off to a clinician. It doesn't matter whether it complies: the orchestrator writes the completion + human-review-requested events itself, every run, regardless of what the model did. Prompted safety is a suggestion; this is a guarantee.",
+  },
+  {
+    title: "Failure escalates instead of disappearing",
+    body:
+      "A flaky LLM call retries with backoff and logs every attempt. If it never recovers, the patient is forced into urgent_review rather than silently left in limbo -- and a defense-in-depth check catches the rarer case where the safety event itself somehow failed to write.",
+  },
+  {
+    title: "Bring your own model",
+    body:
+      "The agent talks to an LLMProvider interface, not a vendor SDK. Ship with zero setup on a deterministic fake, point it at Anthropic for a hosted model, or run it entirely against a local Ollama model with nothing leaving your machine.",
+  },
+] as const;
 
-export default async function PatientListPage() {
-  let patients: PatientWorldState[] = [];
-  let loadError: string | null = null;
-
+export default async function LandingPage() {
+  let patientCount: number | null = null;
   try {
-    patients = await getPatients();
+    const patients = await getPatients();
+    patientCount = patients.length;
   } catch {
-    loadError =
-      "Could not reach the TriageCopilot API. Is the backend running (npm run backend:dev)?";
+    patientCount = null;
   }
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Patients</h1>
-        <NewPatientForm />
-      </div>
-
-      {loadError && (
-        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {loadError}
+      {/* Hero */}
+      <section className="border-b border-stone-200 bg-white">
+        <div className="mx-auto max-w-4xl px-6 py-20 text-center">
+          <p className="mb-3 text-sm font-medium uppercase tracking-wide text-teal-700">
+            A synthetic care-ops prototype
+          </p>
+          <h1 className="font-display text-4xl font-semibold leading-tight text-stone-900 sm:text-5xl">
+            An AI triage agent that is architecturally incapable of finalizing a decision.
+          </h1>
+          <p className="mx-auto mt-6 max-w-2xl text-lg text-stone-600">
+            TriageCopilot works a synthetic patient&apos;s intake end to end, tool call by tool
+            call, then hands every single case to a human clinician. Not because the prompt
+            asks nicely -- because the orchestrator enforces it.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/dashboard"
+              className="rounded-md bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-600"
+            >
+              View the live dashboard
+            </Link>
+            <Link
+              href="/how-it-works"
+              className="rounded-md border border-stone-300 px-5 py-2.5 text-sm font-semibold text-stone-800 hover:bg-stone-50"
+            >
+              See how it works
+            </Link>
+          </div>
+          {patientCount !== null && (
+            <p className="mt-6 text-xs text-stone-400">
+              {patientCount} synthetic patient{patientCount === 1 ? "" : "s"} currently on the
+              dashboard, live from this instance&apos;s own database.
+            </p>
+          )}
         </div>
-      )}
+      </section>
 
-      {!loadError && patients.length === 0 && (
-        <p className="text-sm text-slate-500">
-          No patients yet. Run <code>npm run backend:seed</code> for a set of synthetic examples,
-          or create one above.
+      {/* What this is / isn't */}
+      <section className="mx-auto max-w-4xl px-6 py-12 text-center">
+        <p className="text-sm text-stone-600">
+          <strong className="font-semibold text-stone-800">
+            Synthetic demo data only, by design.
+          </strong>{" "}
+          No real patients, no real PHI, no real diagnoses or prescribing logic. This is a
+          portfolio prototype built to demonstrate architecture -- event sourcing, invariant
+          enforcement, agent tool-calling, and a hard human-in-the-loop gate -- the same
+          primitives a real clinical ops platform is built from, at a scale honest about what it
+          is.
         </p>
-      )}
+      </section>
 
-      {!loadError && patients.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-2">Patient</th>
-                <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2">Risk</th>
-                <th className="px-4 py-2">Last updated</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {patients.map((patient) => (
-                <tr key={patient.patientId} className="hover:bg-slate-50">
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/patients/${patient.patientId}`}
-                      className="font-medium text-blue-700 hover:underline"
-                    >
-                      {patient.displayName}
-                    </Link>
-                    {patient.safetyAlert && (
-                      <div className="mt-0.5 text-xs font-medium text-red-600">⚠ Safety alert</div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={patient.status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <RiskBadge riskLevel={patient.riskLevel} />
-                  </td>
-                  <td className="px-4 py-3 text-slate-500">{lastUpdated(patient)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Core design principles */}
+      <section className="border-y border-stone-200 bg-white">
+        <div className="mx-auto max-w-6xl px-6 py-16">
+          <h2 className="font-display text-center text-2xl font-semibold text-stone-900">
+            What the architecture actually enforces
+          </h2>
+          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            {PRINCIPLES.map((p) => (
+              <div key={p.title} className="rounded-lg border border-stone-200 p-5">
+                <h3 className="font-semibold text-stone-900">{p.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-stone-600">{p.body}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
+      </section>
+
+      {/* Product-notes teaser */}
+      <section className="mx-auto max-w-4xl px-6 py-16 text-center">
+        <h2 className="font-display text-2xl font-semibold text-stone-900">
+          Built after looking closely at what real triage products are missing
+        </h2>
+        <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-stone-600">
+          Before writing any of this, I read through how AI-native clinical-ops products
+          actually talk about safety, audit trails, and human-in-the-loop review in practice --
+          and where the gaps still are. Product notes lays out specifically what I noticed and
+          how each piece of TriageCopilot answers it.
+        </p>
+        <Link
+          href="/product-notes"
+          className="mt-6 inline-block text-sm font-semibold text-teal-700 hover:underline"
+        >
+          Read the product notes →
+        </Link>
+      </section>
     </div>
   );
 }

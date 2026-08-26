@@ -1,14 +1,24 @@
 @import "tailwindcss";
 
-:root {
-  --status-red: #dc2626;
-  --status-amber: #d97706;
-  --status-blue: #2563eb;
-  --status-green: #16a34a;
-  --status-gray: #6b7280;
-}
+/* Status/risk color pairs live as Tailwind utility strings in
+   lib/statusMeta.ts (single source of truth for that mapping) rather than
+   duplicated here as CSS variables. */
 
 body {
-  background-color: #f8fafc;
-  color: #0f172a;
+  /* Warm off-white instead of a cold slate-blue background -- small thing,
+     but it's the difference between "clinical/considered" and "generic
+     dev-tool gray" at a glance. */
+  background-color: #faf9f7;
+  color: #1c1917;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, ui-sans-serif,
+    system-ui, sans-serif;
+}
+
+/* Headings get a system serif for warmth and a bit of editorial weight --
+   applied explicitly (not globally on h1-h6) so dashboard UI chrome stays
+   in the compact sans face and only long-form/marketing copy opts in.
+   Deliberately a system stack, not a webfont: see the note in layout.tsx. */
+.font-display {
+  font-family: Georgia, Cambria, "Times New Roman", Times, serif;
 }
