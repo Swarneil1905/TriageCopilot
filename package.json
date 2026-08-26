@@ -11,6 +11,7 @@
     "db:down": "docker compose down",
     "backend:build": "npm run build -w packages/backend",
     "backend:test": "npm run test -w packages/backend",
+    "backend:smoke": "npm run smoke -w packages/backend",
     "backend:seed": "npm run seed -w packages/backend",
     "backend:dev": "npm run dev -w packages/backend",
     "frontend:dev": "npm run dev -w packages/frontend",
