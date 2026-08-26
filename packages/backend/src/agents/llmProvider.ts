@@ -134,6 +134,181 @@ export class AnthropicProvider implements LLMProvider {
   }
 }
 
+// ---------------------------------------------------------------------------
+// OllamaProvider: native tool-calling against a local Ollama server's
+// /api/chat endpoint (see https://github.com/ollama/ollama/blob/main/docs/api.md).
+// Ollama accepts an OpenAI-function-shaped `tools` array and returns
+// `message.tool_calls` in that same shape, so the real work here is
+// translating between that flat {role, content} message format and the
+// Anthropic-shaped ProviderMessage the orchestrator uses everywhere else --
+// AnthropicProvider is a pass-through, this one is a real adapter.
+//
+// This can't be exercised against a live server from this sandbox (no
+// outbound access to a local Ollama install), so it's unit-tested below
+// against a mocked fetch, and verified for real by running `ollama serve`
+// with a tool-calling-capable model pulled (e.g. `ollama pull qwen2.5:7b`)
+// on your own machine.
+// ---------------------------------------------------------------------------
+
+interface OllamaFunctionTool {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: unknown;
+  };
+}
+
+interface OllamaToolCall {
+  id?: string;
+  function: {
+    name: string;
+    // Ollama's docs show this as a parsed object, but some models/versions
+    // return a JSON-encoded string -- handle both defensively.
+    arguments: Record<string, unknown> | string;
+  };
+}
+
+interface OllamaMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  tool_calls?: OllamaToolCall[];
+  tool_name?: string;
+}
+
+function toolsToOllamaFormat(tools: typeof AGENT_TOOLS): OllamaFunctionTool[] {
+  return tools.map((t) => ({
+    type: "function",
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.input_schema,
+    },
+  }));
+}
+
+/**
+ * Flattens the Anthropic-shaped ProviderMessage list into Ollama's simple
+ * {role, content} list, prefixed with a system message. The one wrinkle: a
+ * ToolResultBlock only carries the tool_use_id it's answering, not the
+ * tool's name, so we track id -> name from the tool_use blocks already seen
+ * as we walk forward and attach it as tool_name on the resulting message.
+ */
+function toOllamaMessages(messages: ProviderMessage[], systemPrompt: string): OllamaMessage[] {
+  const out: OllamaMessage[] = [{ role: "system", content: systemPrompt }];
+  const nameForId = new Map<string, string>();
+
+  for (const msg of messages) {
+    if (msg.role === "assistant") {
+      const textBlocks = msg.content.filter((b): b is TextBlock => b.type === "text");
+      const toolUseBlocks = msg.content.filter((b): b is ToolUseBlock => b.type === "tool_use");
+      for (const tb of toolUseBlocks) nameForId.set(tb.id, tb.name);
+
+      out.push({
+        role: "assistant",
+        content: textBlocks.map((b) => b.text).join(""),
+        ...(toolUseBlocks.length > 0
+          ? {
+              tool_calls: toolUseBlocks.map((tb) => ({
+                id: tb.id,
+                function: { name: tb.name, arguments: tb.input },
+              })),
+            }
+          : {}),
+      });
+    } else {
+      for (const block of msg.content) {
+        if (block.type === "text") {
+          out.push({ role: "user", content: block.text });
+        } else {
+          out.push({
+            role: "tool",
+            content: block.content,
+            tool_name: nameForId.get(block.tool_use_id),
+          });
+        }
+      }
+    }
+  }
+
+  return out;
+}
+
+function parseToolArguments(raw: Record<string, unknown> | string | undefined): Record<string, unknown> {
+  if (raw === undefined) return {};
+  if (typeof raw === "object" && raw !== null) return raw;
+  if (typeof raw !== "string") return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export interface OllamaProviderConfig {
+  baseUrl?: string;
+  model?: string;
+  /** Injectable for tests; defaults to the global fetch. */
+  fetchImpl?: typeof fetch;
+}
+
+export class OllamaProvider implements LLMProvider {
+  private baseUrl: string;
+  private model: string;
+  private fetchImpl: typeof fetch;
+
+  constructor(config: OllamaProviderConfig = {}) {
+    // Trim a trailing slash so `${baseUrl}/api/chat` never ends up with `//`.
+    this.baseUrl = (config.baseUrl ?? process.env.OLLAMA_BASE_URL ?? "http://localhost:11434").replace(
+      /\/$/,
+      ""
+    );
+    this.model = config.model ?? process.env.OLLAMA_MODEL ?? "qwen2.5:7b";
+    this.fetchImpl = config.fetchImpl ?? fetch;
+  }
+
+  async nextTurn(messages: ProviderMessage[], opts: NextTurnOptions): Promise<ProviderTurn> {
+    const tools = opts.tools ?? AGENT_TOOLS;
+
+    const res = await this.fetchImpl(`${this.baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: this.model,
+        messages: toOllamaMessages(messages, opts.systemPrompt),
+        tools: toolsToOllamaFormat(tools),
+        stream: false,
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(
+        `Ollama request to ${this.baseUrl}/api/chat failed (${res.status} ${res.statusText}) -- ` +
+          `is 'ollama serve' running and is ${this.model} pulled? ${body}`
+      );
+    }
+
+    const data = (await res.json()) as {
+      message?: { content?: string; tool_calls?: OllamaToolCall[] };
+    };
+    const message = data.message ?? {};
+    const rawToolCalls = message.tool_calls ?? [];
+
+    const toolCalls: ProviderToolCall[] = rawToolCalls.map((tc, i) => ({
+      id: tc.id ?? `ollama-call-${i}`,
+      name: tc.function.name as ToolName,
+      input: parseToolArguments(tc.function.arguments),
+    }));
+
+    return {
+      toolCalls,
+      text: message.content && message.content.length > 0 ? message.content : null,
+    };
+  }
+}
+
 export function makeLLMProvider(): LLMProvider {
   const kind = process.env.LLM_PROVIDER ?? "fake";
   if (kind === "anthropic") {
@@ -142,6 +317,11 @@ export function makeLLMProvider(): LLMProvider {
       throw new Error("LLM_PROVIDER=anthropic requires ANTHROPIC_API_KEY to be set.");
     }
     return new AnthropicProvider(apiKey);
+  }
+  if (kind === "ollama") {
+    // baseUrl/model fall back to OLLAMA_BASE_URL / OLLAMA_MODEL env vars (or
+    // localhost:11434 / qwen2.5:7b) inside the constructor when omitted here.
+    return new OllamaProvider({});
   }
   // Default fake script: a well-behaved run that calls every tool in the
   // expected order, including the mandatory human-review handoff. Callers
