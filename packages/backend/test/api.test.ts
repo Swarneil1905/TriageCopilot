@@ -115,9 +115,13 @@ describe("API integration (real Postgres)", () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it("health check responds ok", async () => {
+  it("health check responds ok and reports the active LLM provider", async () => {
     const res = await app.inject({ method: "GET", url: "/health" });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ ok: true });
+    // llmProvider mirrors whatever LLM_PROVIDER is set to at runtime -- the
+    // frontend reads this to render the "Powered by <provider>" badge on
+    // the Agent Reasoning panel, so it needs to be a real, live value
+    // rather than hardcoded, and tests must not assume a specific one.
+    expect(res.json()).toEqual({ ok: true, llmProvider: expect.any(String) });
   });
 });
