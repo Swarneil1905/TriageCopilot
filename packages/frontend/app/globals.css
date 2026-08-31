@@ -4,6 +4,20 @@
    lib/statusMeta.ts (single source of truth for that mapping) rather than
    duplicated here as CSS variables. */
 
+/* One new theme color: a muted terracotta ("rust"), used exclusively as a
+   small editorial accent (eyebrow-label dots, thin underlines, the
+   occasional data-viz stroke), reachable as bg-rust / text-rust /
+   border-rust. Deliberately not Abridge's fully saturated red-orange:
+   this app already uses rose as the fixed color for real danger/urgent
+   semantics (urgent_review, safety alerts, form errors), and a second
+   saturated red-family accent for ordinary decoration would visually
+   compete with that "something is wrong" signal on pages that show both.
+   Rust never appears on a primary CTA button or a status/risk badge. */
+@theme {
+  --color-rust: #c4572e;
+  --color-cream: #f7f2ed;
+}
+
 body {
   /* Warm off-white instead of a cold slate-blue background: small thing,
      but it's the difference between "clinical/considered" and "generic
@@ -11,16 +25,32 @@ body {
   background-color: #faf9f7;
   color: #1c1917;
   font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, ui-sans-serif,
-    system-ui, sans-serif;
+    "Plus Jakarta Sans Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Headings get a system serif for warmth and a bit of editorial weight,
-   applied explicitly (not globally on h1-h6) so dashboard UI chrome stays
-   in the compact sans face and only long-form/marketing copy opts in.
-   Deliberately a system stack, not a webfont: see the note in layout.tsx. */
+/* Headlines previously used a system serif for "warmth and editorial
+   weight." Reversed here, deliberately: neither Nabla nor Abridge, the two
+   sites this pass is benchmarked against, uses a serif anywhere; both are
+   entirely bold grotesk/sans at large sizes with tight negative tracking,
+   which reads as "clinical AI product" rather than "magazine/blog." A
+   self-hosted variable grotesk (Space Grotesk, OFL-licensed, bundled as a
+   real npm dependency via @fontsource, imported once in layout.tsx) is a
+   zero-network-dependency way to get that same large-confident-type effect
+   without either a serif or a runtime call to a font CDN. Pair with the
+   .tracking-display utility below at the largest sizes. */
 .font-display {
-  font-family: Georgia, Cambria, "Times New Roman", Times, serif;
+  font-family:
+    "Space Grotesk Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, ui-sans-serif, system-ui, sans-serif;
+}
+
+/* The tight negative letter-spacing both reference sites lean on at large
+   display sizes (Nabla ≈ -0.58px at ~62px, Abridge ≈ -2.88px at 72px, both
+   roughly -3% to -4% of the font size). One shared utility so every big
+   headline across the site uses the same value instead of ad hoc classes. */
+.tracking-display {
+  letter-spacing: -0.03em;
 }
 
 /* A small number of elements animate into view on scroll (see
@@ -71,14 +101,29 @@ body {
   border-radius: 12px;
 }
 
+/* A warm cream surface, distinct from plain-white .surface-flat, pulled
+   directly from Abridge's own stat/impact card background. Used for
+   sections that should read as a quiet, tinted band breaking up an
+   otherwise all-white page (the live-demo card, stat/impact callouts),
+   the same "warm neutrals, not cold SaaS gray-blue" instinct the rest of
+   this file already follows, just a second tone of it. */
+.surface-cream {
+  background: var(--color-cream);
+  border: 1px solid #ece3d8;
+  border-radius: 14px;
+}
+
 /* The landing page hero's dark panel: the entire hero lives inside this,
    not just a side card. This is the one deliberately loud, high contrast
    surface on the whole site, on purpose, so the hero reads as a real
    product's front door instead of another plain white content section.
-   A subtle radial gradient rather than a flat fill gives it depth without
-   needing a photograph or any stock art. */
+   Retuned toward a true forest green (Nabla's actual hero color runs
+   close to #052E28) rather than the previous warm-black/stone gradient:
+   a flat, confident dark green reads as "considered brand color," where a
+   near-black panel reads as generic dark-mode. Kept as a gradient rather
+   than Nabla's flat fill so it still has depth without a photograph. */
 .surface-hero-dark {
-  background: radial-gradient(130% 160% at 12% -10%, #2b2725 0%, #1c1917 45%, #100e0c 100%);
+  background: radial-gradient(130% 160% at 12% -10%, #123a2e 0%, #0a2b21 45%, #052e22 100%);
   border-radius: 28px;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.05) inset,
