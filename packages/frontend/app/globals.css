@@ -5,7 +5,7 @@
    duplicated here as CSS variables. */
 
 body {
-  /* Warm off-white instead of a cold slate-blue background -- small thing,
+  /* Warm off-white instead of a cold slate-blue background: small thing,
      but it's the difference between "clinical/considered" and "generic
      dev-tool gray" at a glance. */
   background-color: #faf9f7;
@@ -15,10 +15,47 @@ body {
     system-ui, sans-serif;
 }
 
-/* Headings get a system serif for warmth and a bit of editorial weight --
+/* Headings get a system serif for warmth and a bit of editorial weight,
    applied explicitly (not globally on h1-h6) so dashboard UI chrome stays
    in the compact sans face and only long-form/marketing copy opts in.
    Deliberately a system stack, not a webfont: see the note in layout.tsx. */
 .font-display {
   font-family: Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+/* A monospace stack for anything that's literally data (event types, ids,
+   code snippets) rather than prose: reinforces "this is a real running
+   system," not a decorative choice. */
+.font-mono-data {
+  font-family:
+    ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
+}
+
+/* Two deliberately different card treatments, used in place of one uniform
+   "rounded-lg border" repeated everywhere. .surface-flat is content that's
+   part of the page's own structure (no visual weight of its own);
+   .surface-raised is content meant to draw the eye (a real trace, a
+   featured callout) and gets a soft shadow instead of a flat ring so it
+   reads as sitting above the page rather than just boxed off. */
+.surface-flat {
+  background: #ffffff;
+  border: 1px solid #e7e5e4;
+  border-radius: 10px;
+}
+
+.surface-raised {
+  background: #ffffff;
+  border: 1px solid #e7e5e4;
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgba(28, 25, 23, 0.04),
+    0 8px 24px -12px rgba(28, 25, 23, 0.12);
+}
+
+/* Subtle 1px inset hairline used on the sticky rail in the patient detail
+   view so it reads as a distinct plane, not just "another box." */
+.surface-rail {
+  background: #fbfaf9;
+  border: 1px solid #edebe9;
+  border-radius: 12px;
 }
