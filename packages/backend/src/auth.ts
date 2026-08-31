@@ -35,7 +35,7 @@ function getSessionSecret(): string {
     ephemeralSecret = randomBytes(32).toString("hex");
     // eslint-disable-next-line no-console
     console.warn(
-      "auth: SESSION_SECRET is not set -- generated a random one for this process only. " +
+      "auth: SESSION_SECRET is not set. Generated a random one for this process only. " +
         "Every existing session will be invalidated on restart. Set a real SESSION_SECRET " +
         "(e.g. `openssl rand -hex 32`) for anything beyond local/test use."
     );
