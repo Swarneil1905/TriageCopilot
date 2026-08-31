@@ -285,8 +285,8 @@ export class OllamaProvider implements LLMProvider {
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       throw new Error(
-        `Ollama request to ${this.baseUrl}/api/chat failed (${res.status} ${res.statusText}) -- ` +
-          `is 'ollama serve' running and is ${this.model} pulled? ${body}`
+        `Ollama request to ${this.baseUrl}/api/chat failed (${res.status} ${res.statusText}). ` +
+          `Is 'ollama serve' running and is ${this.model} pulled? ${body}`
       );
     }
 
