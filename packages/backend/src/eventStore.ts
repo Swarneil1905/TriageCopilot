@@ -131,25 +131,45 @@ export async function appendEvents(
 
 export async function createPatient(
   pool: Pool,
-  displayName: string
+  displayName: string,
+  options?: { isDemo?: boolean }
 ): Promise<{ id: string }> {
+  const isDemo = options?.isDemo ?? false;
   const { rows } = await pool.query(
-    `insert into patients (display_name) values ($1) returning id`,
-    [displayName]
+    `insert into patients (display_name, is_demo) values ($1, $2) returning id`,
+    [displayName, isDemo]
   );
   const patientId = rows[0].id as string;
   await appendEvent(pool, async () => displayName, {
     patientId,
     type: "PatientCreated",
     actorType: "system",
-    actorName: "intake-service",
+    actorName: isDemo ? "live-demo" : "intake-service",
     payload: {},
   });
   return { id: patientId };
 }
 
+/**
+ * Same write path as createPatient, flagged is_demo so it's excluded from
+ * the default dashboard listing below -- used exclusively by the public
+ * "watch the AI agent reason" live-demo trigger (routes/demo.ts). The
+ * resulting patient is a completely real row in the same event-sourced
+ * schema, still reachable at its own /patients/:id page.
+ */
+export async function createDemoPatient(pool: Pool, displayName: string): Promise<{ id: string }> {
+  return createPatient(pool, displayName, { isDemo: true });
+}
+
 export async function listPatientsWithState(pool: Pool): Promise<PatientWorldState[]> {
-  const { rows } = await pool.query(`select id, display_name from patients order by created_at asc`);
+  // Demo patients (created by the public live-demo button) are deliberately
+  // excluded here -- they'd otherwise clutter the curated seed-data list and
+  // inflate the landing page's "N synthetic patients" count every time a
+  // visitor clicks the demo button. They're still fully real rows, still
+  // directly reachable at their own /patients/:id page.
+  const { rows } = await pool.query(
+    `select id, display_name from patients where is_demo = false order by created_at asc`
+  );
   const states: PatientWorldState[] = [];
   for (const row of rows) {
     const events = await getEventsForPatient(pool, row.id);
