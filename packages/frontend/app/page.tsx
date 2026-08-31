@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { getPatients } from "@/lib/api";
+import { getHealth, getPatients } from "@/lib/api";
+import { AgentReasoningPanel } from "@/components/AgentReasoningPanel";
+import { LiveDemoRunner } from "@/components/LiveDemoRunner";
 
 const PRINCIPLES = [
   {
@@ -26,12 +28,26 @@ const PRINCIPLES = [
 
 export default async function LandingPage() {
   let patientCount: number | null = null;
+  let featuredEvents: Awaited<ReturnType<typeof getPatients>>[number]["events"] | null = null;
+  let featuredPatientId: string | null = null;
   try {
     const patients = await getPatients();
     patientCount = patients.length;
+    // The first patient with an actual completed triage run, so the landing
+    // page shows a real trace rather than a mockup -- read-only, no cost,
+    // no auth required. Falls back gracefully to "no run yet" right after a
+    // fresh seed reset with nothing completed.
+    const featured = patients.find((p) => p.events.some((e) => e.type === "TriageToolCalled"));
+    if (featured) {
+      featuredEvents = featured.events;
+      featuredPatientId = featured.patientId;
+    }
   } catch {
     patientCount = null;
   }
+  const llmProvider = await getHealth()
+    .then((h) => h.llmProvider)
+    .catch(() => undefined);
 
   return (
     <div>
@@ -69,6 +85,44 @@ export default async function LandingPage() {
               dashboard, live from this instance&apos;s own database.
             </p>
           )}
+        </div>
+      </section>
+
+      {/* Watch the AI agent reason */}
+      <section className="border-b border-stone-200 bg-stone-50">
+        <div className="mx-auto max-w-4xl px-6 py-16">
+          <h2 className="font-display text-center text-2xl font-semibold text-stone-900">
+            Watch the AI agent reason
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed text-stone-600">
+            This is the actual tool-by-tool trace the triage agent produces on a real intake -- not a mockup, not a
+            screenshot. Every line below is a logged <code>TriageToolCalled</code> event.
+          </p>
+
+          <div className="mt-8 rounded-lg border border-stone-200 bg-white p-6">
+            {featuredEvents ? (
+              <>
+                <AgentReasoningPanel events={featuredEvents} llmProvider={llmProvider} />
+                {featuredPatientId && (
+                  <Link
+                    href={`/patients/${featuredPatientId}`}
+                    className="mt-4 inline-block text-sm font-semibold text-teal-700 hover:underline"
+                  >
+                    View this patient&apos;s full page →
+                  </Link>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-stone-500">
+                No completed triage run yet on this instance -- run the seed script or use the button below to
+                produce one.
+              </p>
+            )}
+          </div>
+
+          <div className="mt-6">
+            <LiveDemoRunner />
+          </div>
         </div>
       </section>
 

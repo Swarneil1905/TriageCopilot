@@ -1,5 +1,7 @@
 # TriageCopilot
 
+[![CI](https://github.com/Swarneil1905/TriageCopilot/actions/workflows/ci.yml/badge.svg)](https://github.com/Swarneil1905/TriageCopilot/actions/workflows/ci.yml)
+
 An event-sourced care-ops prototype where an LLM triage agent works a synthetic patient's
 intake end to end, tool call by tool call, then is **architecturally incapable of closing the
 loop itself** - every run ends in a `request_human_review` handoff to a clinician. Built as a
@@ -10,6 +12,15 @@ health telehealth company.
 > logic. Every patient in this repo is fictional and labeled as such in the UI. This is not
 > HIPAA-compliant software and is not connected to any real EHR - see [What this explicitly
 > isn't](#what-this-explicitly-isnt).
+
+**Live demo:** https://frontend-production-5a1c9.up.railway.app (backend API at
+https://backend-production-22343.up.railway.app/api). Runs on `LLM_PROVIDER=fake` for a
+zero-cost, zero-API-key public demo - see [How to run locally](#how-to-run-locally) below to
+point it at a real Anthropic or local Ollama model instead. The demo Postgres has no persistent
+volume attached, so seeded data resets on redeploy; that's an accepted tradeoff given the data
+is synthetic by design, not an oversight. The landing page's "Watch the AI agent reason" section
+lets you create an account and trigger a real triage-agent run yourself, live, against whatever
+model is currently configured - see below.
 
 ## What this is
 
@@ -27,6 +38,22 @@ enforced in code rather than promised in a prompt:
 - **The model is swappable.** The agent talks to an `LLMProvider` interface, not a vendor SDK.
   Ship with zero setup on a deterministic fake, point it at Anthropic for a hosted model, or run
   it entirely against a local Ollama model with nothing leaving your machine.
+
+## Watch the AI agent reason
+
+The landing page doesn't just describe the architecture in prose - it embeds a real, already-
+completed patient's actual `TriageToolCalled` trace (not a screenshot or a mockup), and below it
+a "Run a live triage now" button that creates a fresh synthetic patient and runs the real agent
+against it, live, rendering the trace inline as soon as it completes.
+
+That button requires a (real, if intentionally minimal) account: a password is scrypt-hashed, a
+session is an HMAC-signed cookie, and the endpoint it gates is rate-limited per account (5 runs /
+15 minutes) plus a shared daily cap across every account (`DEMO_DAILY_CAP`, default 20). None of
+that is a general access-control system - every other route in this app (the dashboard, every
+patient, the audit log) has never required login and still doesn't. The only reason an account
+exists at all is that an anonymous, un-gated button making a real LLM call on every click is a
+standing invitation to run up the site owner's API bill once `LLM_PROVIDER` is pointed at a
+hosted model - see `0002_auth_and_demo.sql`'s header comment for the full reasoning.
 
 ## Architecture
 
@@ -80,6 +107,8 @@ recommendation, not just the recommendation itself.
 | LLM providers | `FakeProvider` (deterministic, zero setup) · `AnthropicProvider` (`@anthropic-ai/sdk`, tool-calling) · `OllamaProvider` (native `/api/chat` tool-calling against a local model) | The whole demo - seed data, all 40 backend tests, the UI - runs with zero API key and zero network calls on `FakeProvider`. Flip `LLM_PROVIDER` to see either a hosted or fully local live agent. |
 | Frontend | Next.js 15 (App Router) + Tailwind v4 | Matches the JD's frontend stack. |
 | Tests | Vitest | Fast, good TS support, minimal config. |
+| Login | scrypt-hashed passwords + an HMAC-signed session cookie (`@fastify/cookie`, `node:crypto`, no third-party auth service) | Gates only the public live-AI-demo trigger, not a general access-control layer - see [Watch the AI agent reason](#watch-the-ai-agent-reason). |
+| Abuse protection | `@fastify/rate-limit` (per-account) + a Postgres-backed daily cap | Protects the site owner's LLM API spend on the one public button that makes a real model call. |
 
 ## How to run locally
 
@@ -87,7 +116,7 @@ recommendation, not just the recommendation itself.
 cp .env.example .env
 docker compose up -d db        # local Postgres, migrations auto-applied
 npm install
-npm run backend:test           # 40 tests, LLM_PROVIDER=fake, no API key needed
+npm run backend:test           # 51 tests, LLM_PROVIDER=fake, no API key needed
 npm run backend:seed           # populates 4 synthetic patients
 npm run backend:dev            # API on :4000
 npm run frontend:dev           # dashboard on :3000
@@ -117,11 +146,31 @@ To see a **live** tool-calling agent instead of the scripted fake one, set in `.
 - `api.test.ts` (5 tests) - a full patient journey through the real HTTP API against real
   Postgres: create → intake → triage → clinician approval → follow-up, asserting status and
   HTTP codes at every step.
+- `auth.test.ts` (6 tests) - signup/login/logout against real Postgres: duplicate-email
+  rejection, wrong-password rejection, a session cookie surviving a real request/response round
+  trip, and `/auth/me` reading `email: null` (200, not 401 - see the comment on that route) for
+  no session or a garbage one.
+- `demo.test.ts` (5 tests) - the live-demo trigger requires login; a real (fake-provider) triage
+  run against a fresh demo patient still ends in a reviewable status; demo patients are excluded
+  from the main dashboard listing but stay directly reachable at their own page; the daily cap
+  and the per-account rate limit both actually reject once hit, computed against whatever is
+  already in `demo_runs` today rather than assuming a clean table, so this doesn't flake as the
+  shared dev Postgres accumulates rows.
 - `scripts/smoke.ts` - a manual, real-Postgres end-to-end smoke test including a deliberately
   rejected premature follow-up, to prove the invariant layer rejects bad writes even from
   legitimate-looking API calls.
 
-**40/40 passing.**
+**51/51 passing.**
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request against `main`: `npm ci`, the
+full backend suite against a real (freshly-provisioned, CI-only) Postgres, a backend typecheck,
+and a production frontend build. Deliberately separate from Railway's own deploy: Railway builds
+and ships whatever lands on `main` regardless of whether it's any good, so this is the actual
+quality gate, not just a deploy trigger. Needs zero secrets and makes zero external API calls -
+`LLM_PROVIDER` stays at its zero-cost fake default in CI, same as every other zero-setup path in
+this repo - so a fork or a PR from anyone can run it without your credentials.
 
 ## What I noticed, and how this answers it
 
@@ -165,9 +214,13 @@ Four gaps I noticed in how this space usually presents itself, and what answers 
 
 ### What this explicitly isn't
 
-Real auth and role-based access control, encryption at rest and in transit, a signed BAA, an
-actual HIPAA compliance program, a connection to a real EHR. None of that is simulated here -
-named directly rather than glossed over.
+Role-based access control, encryption at rest and in transit, a signed BAA, an actual HIPAA
+compliance program, a connection to a real EHR. None of that is simulated here - named directly
+rather than glossed over. The one piece of real auth that does exist - login gating the public
+live-AI-demo button, see [Watch the AI agent reason](#watch-the-ai-agent-reason) - is there
+purely to protect the site owner's API spend, not as a stand-in for the access-control layer a
+real clinical system would need: it grants no permissions, checks no roles, and nothing else in
+the app is any less open because of it.
 
 ## Mapping to the Legion Health JD
 

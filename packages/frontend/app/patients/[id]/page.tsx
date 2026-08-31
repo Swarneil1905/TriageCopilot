@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ApiError, getPatient } from "@/lib/api";
+import { ApiError, getHealth, getPatient } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { RiskBadge } from "@/components/RiskBadge";
 import { Timeline } from "@/components/Timeline";
@@ -15,6 +15,11 @@ export default async function PatientDetailPage({
 
   try {
     const patient = await getPatient(id);
+    // Best-effort -- if /health is briefly unreachable, the panel just
+    // renders without the "Powered by" badge rather than failing the page.
+    const llmProvider = await getHealth()
+      .then((h) => h.llmProvider)
+      .catch(() => undefined);
 
     return (
       <div className="mx-auto max-w-6xl px-6 py-8">
@@ -50,7 +55,7 @@ export default async function PatientDetailPage({
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-500">
               Agent reasoning
             </h2>
-            <AgentReasoningPanel events={patient.events} />
+            <AgentReasoningPanel events={patient.events} llmProvider={llmProvider} />
           </section>
 
           <section className="rounded-lg border border-stone-200 bg-white p-4">

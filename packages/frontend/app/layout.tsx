@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { NavBar } from "@/components/NavBar";
+import { SessionProvider } from "@/components/SessionProvider";
 import "./globals.css";
 
 // Deliberately system font stacks, not next/font/google -- a Google Fonts
@@ -19,9 +20,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen">
-        <DisclaimerBanner />
-        <NavBar />
-        <main>{children}</main>
+        <SessionProvider>
+          <DisclaimerBanner />
+          <NavBar />
+          <main>{children}</main>
+        </SessionProvider>
       </body>
     </html>
   );

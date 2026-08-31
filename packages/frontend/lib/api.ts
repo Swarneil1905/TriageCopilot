@@ -88,6 +88,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     cache: "no-store",
     headers,
+    // The frontend and backend are different origins (locally, different
+    // ports; in production, different Railway subdomains), so the session
+    // cookie the auth routes set is only ever sent/received when every
+    // request explicitly opts in like this -- see auth.ts on the backend
+    // for the matching SameSite/Secure reasoning. Harmless for routes that
+    // don't touch auth at all.
+    credentials: "include",
   });
 
   if (!res.ok) {
@@ -154,4 +161,67 @@ export function scheduleFollowUp(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+// --- Health / provider badge -------------------------------------------
+
+export interface HealthResponse {
+  ok: boolean;
+  llmProvider: "fake" | "anthropic" | "ollama" | string;
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  fake: "Scripted demo logic (no live LLM call)",
+  anthropic: "Anthropic Claude (live)",
+  ollama: "Local Ollama model (live)",
+};
+
+export function providerLabel(provider: string): string {
+  return PROVIDER_LABELS[provider] ?? provider;
+}
+
+// getHealth hits the bare (non-/api) /health endpoint, so it builds its own
+// URL rather than going through request()'s /api-prefixed path helper.
+export async function getHealth(): Promise<HealthResponse> {
+  const base = API_BASE_URL.replace(/\/api\/?$/, "");
+  const res = await fetch(`${base}/health`, { cache: "no-store", credentials: "include" });
+  if (!res.ok) throw new ApiError(res.status, { error: "Could not reach the backend" });
+  return res.json() as Promise<HealthResponse>;
+}
+
+// --- Auth ---------------------------------------------------------------
+
+export interface SessionUser {
+  email: string;
+}
+
+export function signUp(email: string, password: string): Promise<SessionUser> {
+  return request<SessionUser>("/auth/signup", { method: "POST", body: JSON.stringify({ email, password }) });
+}
+
+export function logIn(email: string, password: string): Promise<SessionUser> {
+  return request<SessionUser>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+}
+
+export function logOut(): Promise<{ ok: true }> {
+  return request<{ ok: true }>("/auth/logout", { method: "POST" });
+}
+
+/** Resolves to the logged-in user, or null if there's no valid session.
+ * /auth/me always responds 200 (with email: null when logged out) rather
+ * than 401 -- "not logged in" is the ordinary case for most visitors to a
+ * public site, not an error, and a 401 here used to show up as a spurious
+ * "Failed to load resource" console error on every anonymous page view. */
+export async function getSession(): Promise<SessionUser | null> {
+  const { email } = await request<{ email: string | null }>("/auth/me");
+  return email ? { email } : null;
+}
+
+// --- Live demo ------------------------------------------------------------
+
+/** Triggers a real triage-agent run against a fresh, clearly-labeled demo
+ * patient. Requires a logged-in session; the backend also enforces a
+ * per-account rate limit and a shared daily cap (see routes/demo.ts). */
+export function runLiveDemo(): Promise<PatientWorldState> {
+  return request<PatientWorldState>("/demo/run", { method: "POST" });
 }
