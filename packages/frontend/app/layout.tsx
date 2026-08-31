@@ -2,20 +2,22 @@ import type { Metadata } from "next";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { NavBar } from "@/components/NavBar";
 import { SessionProvider } from "@/components/SessionProvider";
+// Self-hosted variable fonts (Space Grotesk for display, Plus Jakarta Sans
+// for body/UI text), pulled in as bundled .woff2 files via @fontsource,
+// not next/font/google or any CDN <link>. An earlier pass tried
+// next/font/google and reverted it after this sandbox's own build could
+// not reach fonts.googleapis.com at all, with no way to confirm Railway's
+// build step could either. That reasoning was sound for that approach, but
+// the actual fix was never "give up on custom type", it was "stop asking
+// the build to fetch fonts over the network at all": self-hosting these as
+// real npm packages means the .woff2 files are part of the build output
+// from this repo's own dependency tree, so there is zero runtime or
+// build-time network call to any font provider, on Railway or anywhere
+// else. System-stack fallbacks are kept in globals.css regardless, as
+// cheap insurance that costs nothing.
+import "@fontsource-variable/space-grotesk";
+import "@fontsource-variable/plus-jakarta-sans";
 import "./globals.css";
-
-// Tried next/font/google (Fraunces + Inter) in this same pass and reverted
-// it after actually reproducing the failure it was meant to avoid: a
-// direct request to fonts.googleapis.com from this sandbox's build failed
-// outright (connection refused, confirmed with a plain curl, not just a
-// next/font retry log), and there is no way from here to confirm Railway's
-// own build step can reach it either. Shipping a font import that might
-// take down the real production build on an unverified network policy is
-// a worse trade than keeping the system stack, so the honest call is to
-// leave this as-is until that can actually be verified against a real
-// Railway build, not assumed. System serif/sans stacks are zero-network-
-// dependency and still read as considered rather than default-Tailwind;
-// see the font-family rules in globals.css.
 
 export const metadata: Metadata = {
   title: "TriageCopilot",
@@ -30,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <DisclaimerBanner />
           <NavBar />
           <main>{children}</main>
-          <footer className="border-t border-stone-200 bg-white px-6 py-6 text-sm text-stone-500">
+          <footer className="border-t border-stone-200 bg-white px-6 py-5 text-sm text-stone-500">
             <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
               <span className="font-mono-data text-xs text-stone-400">
                 TriageCopilot. Next.js, Fastify, Postgres, deployed on Railway.
