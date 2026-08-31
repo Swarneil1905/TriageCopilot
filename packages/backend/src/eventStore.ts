@@ -77,55 +77,90 @@ export async function appendEvent(
  * written together, and this is what actually makes that true rather than
  * just asserting it in a comment.
  */
+// Postgres error codes that its own docs say are expected and retryable
+// under SERIALIZABLE isolation, not application bugs: 40001 is a
+// serialization failure (two transactions' read/write sets conflicted),
+// 40P01 is a deadlock. "Your application should be designed to retry
+// transactions that fail due to serialization failures" is Postgres's own
+// wording for exactly this. Confirmed this was a real gap, not a
+// theoretical one: running many concurrent writers against a real fresh
+// Postgres reliably produced 40001s that surfaced as bare 500s with no
+// retry at all, which is what was actually causing the intermittent
+// backend CI failures (a different test failing each time, always as
+// "expected 500 to be 200", never the same one twice).
+const RETRYABLE_PG_CODES = new Set(["40001", "40P01"]);
+const MAX_SERIALIZATION_RETRIES = 8;
+
+function isRetryablePgError(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === "string" && RETRYABLE_PG_CODES.has(code);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function appendEvents(
   pool: Pool,
   displayNameLookup: (patientId: string) => Promise<string>,
   patientId: string,
   inputs: Array<Omit<AppendEventInput, "patientId">>
 ): Promise<DomainEvent[]> {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN ISOLATION LEVEL SERIALIZABLE");
+  for (let attempt = 0; ; attempt++) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL SERIALIZABLE");
 
-    const { rows } = await client.query(
-      `select * from events where patient_id = $1 order by created_at asc for update`,
-      [patientId]
-    );
-    let events = rows.map(rowToEvent);
-    const displayName = await displayNameLookup(patientId);
-    const inserted: DomainEvent[] = [];
-
-    for (const input of inputs) {
-      const currentState = projectPatientState(patientId, displayName, events);
-      assertValidAppend(currentState, input.type, input.runId ?? null);
-
-      const id = randomUUID();
-      const insertRes = await client.query(
-        `insert into events (id, patient_id, run_id, type, actor_type, actor_name, payload)
-         values ($1, $2, $3, $4, $5, $6, $7)
-         returning *`,
-        [
-          id,
-          patientId,
-          input.runId ?? null,
-          input.type,
-          input.actorType,
-          input.actorName,
-          JSON.stringify(input.payload ?? {}),
-        ]
+      const { rows } = await client.query(
+        `select * from events where patient_id = $1 order by created_at asc for update`,
+        [patientId]
       );
-      const newEvent = rowToEvent(insertRes.rows[0]);
-      inserted.push(newEvent);
-      events = [...events, newEvent];
-    }
+      let events = rows.map(rowToEvent);
+      const displayName = await displayNameLookup(patientId);
+      const inserted: DomainEvent[] = [];
 
-    await client.query("COMMIT");
-    return inserted;
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
+      for (const input of inputs) {
+        const currentState = projectPatientState(patientId, displayName, events);
+        assertValidAppend(currentState, input.type, input.runId ?? null);
+
+        const id = randomUUID();
+        const insertRes = await client.query(
+          `insert into events (id, patient_id, run_id, type, actor_type, actor_name, payload)
+           values ($1, $2, $3, $4, $5, $6, $7)
+           returning *`,
+          [
+            id,
+            patientId,
+            input.runId ?? null,
+            input.type,
+            input.actorType,
+            input.actorName,
+            JSON.stringify(input.payload ?? {}),
+          ]
+        );
+        const newEvent = rowToEvent(insertRes.rows[0]);
+        inserted.push(newEvent);
+        events = [...events, newEvent];
+      }
+
+      await client.query("COMMIT");
+      return inserted;
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {
+        // The connection can already be unusable after some errors (a
+        // serialization failure included); a failed rollback here just
+        // means there was nothing to roll back, not a new problem.
+      });
+      if (isRetryablePgError(err) && attempt < MAX_SERIALIZATION_RETRIES) {
+        // Small jittered backoff so a batch of writers that all lost the
+        // same conflict don't immediately collide again on the retry.
+        await sleep(10 * (attempt + 1) + Math.random() * 20);
+        continue;
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }
 
