@@ -27,12 +27,12 @@ const STEPS = [
   {
     title: "1. Every write is one function, and it's transactional",
     body:
-      "There is exactly one path into the events table: eventStore.appendEvent, inside a SERIALIZABLE transaction. It re-projects the patient's current state, checks the proposed event against the state machine's invariants, and only then inserts. An illegal transition -- a clinician decision recorded before any triage ran, a follow-up scheduled twice -- is rejected at that layer, not just hidden in the UI. Try it from curl instead of the dashboard and you still get a 409.",
+      "There is exactly one path into the events table: eventStore.appendEvent, inside a SERIALIZABLE transaction. It re-projects the patient's current state, checks the proposed event against the state machine's invariants, and only then inserts. An illegal transition (a clinician decision recorded before any triage ran, a follow-up scheduled twice) is rejected at that layer, not just hidden in the UI. Try it from curl instead of the dashboard and you still get a 409.",
   },
   {
-    title: "2. The agent proposes, tool by tool -- it never decides",
+    title: "2. The agent proposes, tool by tool: it never decides",
     body:
-      "Each triage run gives the model four tools: look up prior history, flag a risk level, draft a clinical summary, and request human review. Every tool call is logged as its own TriageToolCalled event with its input and output, in order -- that log is exactly what the dashboard's Agent Reasoning panel renders. Nothing the agent does mutates a patient's real status; it only ever produces a draft and a recommendation.",
+      "Each triage run gives the model four tools: look up prior history, flag a risk level, draft a clinical summary, and request human review. Every tool call is logged as its own TriageToolCalled event with its input and output, in order. That log is exactly what the dashboard's Agent Reasoning panel renders. Nothing the agent does mutates a patient's real status; it only ever produces a draft and a recommendation.",
   },
   {
     title: "3. The handoff is enforced by code, not by the prompt",
@@ -42,12 +42,12 @@ const STEPS = [
   {
     title: "4. Failure has one job: never fail silently",
     body:
-      "An LLM call that errors retries with exponential backoff, logging an AgentErrorOccurred event for every attempt. If every attempt fails, the patient is escalated straight to urgent_review rather than left stuck. And as a second, independent layer: if the projection ever finds a completed triage run with no matching review request for its run id -- meaning the safety event itself somehow never made it -- it forces urgent_review anyway. That's a deliberate answer to \"what if the safety-critical write silently failed.\"",
+      "An LLM call that errors retries with exponential backoff, logging an AgentErrorOccurred event for every attempt. If every attempt fails, the patient is escalated straight to urgent_review rather than left stuck. And as a second, independent layer: if the projection ever finds a completed triage run with no matching review request for its run id (meaning the safety event itself somehow never made it), it forces urgent_review anyway. That's a deliberate answer to \"what if the safety-critical write silently failed.\"",
   },
   {
     title: "5. The model is swappable without touching the orchestrator",
     body:
-      "The agent talks to an LLMProvider interface with one method: nextTurn. FakeProvider scripts deterministic tool calls so the whole demo, and the test suite, runs with zero API key and zero network calls. AnthropicProvider is a thin pass-through to Claude's tool-use API. OllamaProvider converts the same tool definitions into Ollama's native tool-calling shape and talks to a model running entirely on your own machine -- same orchestrator, same invariants, same audit trail, different brain.",
+      "The agent talks to an LLMProvider interface with one method: nextTurn. FakeProvider scripts deterministic tool calls so the whole demo, and the test suite, runs with zero API key and zero network calls. AnthropicProvider is a thin pass-through to Claude's tool-use API. OllamaProvider converts the same tool definitions into Ollama's native tool-calling shape and talks to a model running entirely on your own machine: same orchestrator, same invariants, same audit trail, different brain.",
   },
 ] as const;
 
@@ -60,12 +60,12 @@ export default function HowItWorksPage() {
       </h1>
       <p className="mt-4 text-stone-600">
         This isn&apos;t a CRUD app with an LLM call bolted on. The core idea is that events are
-        the only source of truth, and every write goes through one invariant-checking gate --
+        the only source of truth, and every write goes through one invariant-checking gate,
         which is what makes the agent&apos;s safety guarantees structural instead of promised.
       </p>
 
-      <div className="mt-8 overflow-x-auto rounded-lg border border-stone-200 bg-stone-50 p-4">
-        <pre className="font-mono text-xs leading-tight text-stone-700">{DIAGRAM}</pre>
+      <div className="surface-flat mt-8 overflow-x-auto bg-stone-50 p-4">
+        <pre className="font-mono-data text-xs leading-tight text-stone-700">{DIAGRAM}</pre>
       </div>
 
       <div className="mt-10 space-y-8">
