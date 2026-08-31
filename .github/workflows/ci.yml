@@ -1,0 +1,81 @@
+name: CI
+
+# Runs on every push and every pull request targeting main. This is
+# deliberately separate from Railway's own auto-deploy-on-push: Railway
+# builds and ships whatever lands on main regardless of whether it's any
+# good, while this workflow is the actual quality gate - the full backend
+# test suite against a real Postgres, a clean backend typecheck, and a
+# clean frontend production build, all with zero secrets and zero external
+# API calls (LLM_PROVIDER defaults to the deterministic fake provider), so
+# a fork or a PR from anyone can run this without needing your credentials.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  backend:
+    name: Backend (typecheck + 51 tests against real Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: triage_copilot
+          POSTGRES_PASSWORD: triage_copilot
+          POSTGRES_DB: triage_copilot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U triage_copilot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://triage_copilot:triage_copilot@localhost:5432/triage_copilot
+      # CI-only signing secret for the session cookie -- not a real secret,
+      # never used outside this workflow. See packages/backend/src/auth.ts
+      # for why a missing SESSION_SECRET doesn't fail the build either way
+      # (it falls back to a random per-process one with a warning).
+      SESSION_SECRET: ci-only-session-secret-not-used-anywhere-real
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply migrations against the CI Postgres
+        run: npm run backend:migrate
+
+      - name: Run the full backend test suite
+        run: npm run backend:test
+
+      - name: Typecheck the backend
+        run: npm run backend:build
+
+  frontend:
+    name: Frontend (production build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Production build
+        # / and /dashboard and /patients/[id] render dynamically at request
+        # time (not statically at build time -- confirmed via the build
+        # output's "ƒ Dynamic" marker on each), so this succeeds with no
+        # backend, no database, and no NEXT_PUBLIC_API_BASE_URL, exactly
+        # like a fork with no infrastructure of its own would experience.
+        run: npm run frontend:build
