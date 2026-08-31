@@ -5,6 +5,17 @@ import { LiveDemoRunner } from "@/components/LiveDemoRunner";
 import { Reveal } from "@/components/Reveal";
 import { Eyebrow } from "@/components/Eyebrow";
 import { StatRing } from "@/components/StatRing";
+import { ScreenshotFrame } from "@/components/ScreenshotFrame";
+
+// The shared section heading size used everywhere below the hero: bumped in
+// round two of the design revamp from a flat text-3xl (30px) at every
+// width, which read noticeably smaller and less confident than either
+// reference site's own section headlines once the hero's own h1 was
+// already scaling up to lg:text-[4rem]. One string reused at every call
+// site rather than a new component, since this file has no shared heading
+// component yet and three call sites do not warrant inventing one.
+const SECTION_HEADING =
+  "font-display tracking-display mt-2 text-3xl font-semibold text-stone-900 sm:text-4xl lg:text-5xl";
 
 // A quiet, grayscale strip of the real technology and CI facts this project
 // actually runs on, standing in for the customer-logo strip Nabla and
@@ -85,23 +96,22 @@ export default async function LandingPage() {
 
   return (
     <div>
-      {/* Hero. A dark panel on an otherwise plain page, the same load
-          bearing shape Abridge's own hero and product sections both use:
-          copy on one side, a real product image on the other, not two
-          equal-weight boxes and not a wall of text with nothing to look
-          at. The image on the right is an actual PNG screenshot of this
-          instance's own agent conversation panel (packages/frontend/public/
-          screenshots/chat-panel.png, captured straight from a real
-          completed run), not a redrawn mockup and not stock photography of
-          people who have never used this project: this is what the earlier
-          "no images anywhere on the site" feedback was actually about, and
-          a real screenshot of the real product is the honest way to answer
-          it, the same way the "Watch the AI agent reason" section further
-          down answers it live instead of with a picture. */}
+      {/* Hero. Pure typography on the dark panel, deliberately: an earlier
+          pass put a screenshot of the agent conversation panel in a second
+          column here, but neither reference site puts a raw product
+          screenshot in its hero at all (Nabla's is eyebrow, headline,
+          subtext, two buttons on a flat dark panel and nothing else;
+          Abridge's is a full-bleed photo, not a UI screenshot). A tall
+          portrait screenshot in this column was also forcing the whole
+          hero past one full viewport, well beyond either reference site's
+          hero height. The real product evidence this page shows still
+          exists, just one section later, in "Watch the AI agent reason"
+          below, which already uses the right device for it: the live
+          panel itself, not a picture of it. */}
       <section className="border-b border-stone-200">
         <div className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
-          <div className="surface-hero-dark grid grid-cols-1 items-center gap-12 px-6 py-14 sm:px-10 sm:py-16 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:px-16 lg:py-20">
-            <div>
+          <div className="surface-hero-dark px-6 py-14 sm:px-10 sm:py-16 lg:px-16 lg:py-20">
+            <div className="max-w-2xl">
               <span className="inline-flex items-center gap-2 rounded-full border border-teal-400/30 bg-teal-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-teal-300">
                 <span className="h-1.5 w-1.5 rounded-full bg-teal-300" />
                 A synthetic care-ops prototype
@@ -146,22 +156,6 @@ export default async function LandingPage() {
                 >
                   View the source on GitHub →
                 </a>
-              </p>
-            </div>
-
-            <div>
-              <div className="rounded-2xl bg-white/5 p-2.5 shadow-2xl shadow-black/50 ring-1 ring-white/10">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/screenshots/chat-panel.png"
-                  alt="TriageCopilot's agent conversation panel, showing a real completed low-risk triage run: a risk flag, a drafted clinical summary, and the handoff to a human reviewer"
-                  className="w-full rounded-xl"
-                  width={902}
-                  height={1488}
-                />
-              </div>
-              <p className="mt-3 text-center text-xs text-stone-400">
-                A real completed run from this instance&apos;s own database. Not a mockup.
               </p>
             </div>
           </div>
@@ -210,40 +204,35 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* Watch the AI agent reason. The card below is framed as an actual
-          browser window (traffic light dots, a real address bar showing
-          the real route this data lives at), because it is one: everything
-          inside is the same live, interactive AgentReasoningPanel a
-          clinician sees on a real patient page, not a static image and not
-          a mockup standing in for the product. */}
+      {/* Watch the AI agent reason: this project's one flagship live-proof
+          moment. Round two of the design revamp deliberately keeps this as
+          the single place the page makes its "this is real, not a mockup"
+          case at length, since three separate sections independently
+          reassuring a visitor the product is real read as defensive rather
+          than confident; the supporting screenshots folded in underneath
+          make the same point once more, briefly, rather than as their own
+          full second section. The live panel itself and the two
+          screenshots below it share the same ScreenshotFrame device, each
+          with its own real route in the address bar, so "here is real
+          product UI" reads as one consistent visual idea across all three
+          rather than three different treatments. */}
       <section className="border-b border-stone-200 bg-cream">
         <div className="mx-auto max-w-4xl px-6 py-20">
           <Reveal>
             <p className="font-mono-data text-xs uppercase tracking-wide text-stone-400">
               Live, from this instance&apos;s own database
             </p>
-            <h2 className="font-display tracking-display mt-2 text-3xl font-semibold text-stone-900">
-              Watch the AI agent reason
-            </h2>
+            <h2 className={SECTION_HEADING}>Watch the AI agent reason</h2>
             <p className="mt-3 max-w-2xl text-base leading-relaxed text-stone-600">
-              This is the actual conversation the triage agent produces on a real intake, not a
-              mockup, not a screenshot standing in for it: the same chat panel, the same data, a
-              clinician sees on a real patient page.
+              This is the actual conversation the triage agent produces on a real intake: the same
+              chat panel, the same data, a clinician sees on a real patient page.
             </p>
           </Reveal>
 
-          <Reveal delayMs={120} className="mt-8 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm shadow-stone-900/5">
-            <div className="flex items-center gap-3 border-b border-stone-100 bg-stone-100/70 px-4 py-2.5">
-              <div className="flex gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-rose-300" />
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
-              </div>
-              <span className="font-mono-data truncate rounded border border-stone-200 bg-white px-2.5 py-1 text-xs text-stone-500">
-                triagecopilot.app/patients/{featuredPatientId ? featuredPatientId.slice(0, 8) : "…"}
-              </span>
-            </div>
-            <div className="p-4">
+          <Reveal delayMs={120} className="mt-8">
+            <ScreenshotFrame
+              route={`triagecopilot.app/patients/${featuredPatientId ? featuredPatientId.slice(0, 8) : "…"}`}
+            >
               {featuredEvents ? (
                 <>
                   <AgentReasoningPanel events={featuredEvents} llmProvider={llmProvider} defaultTraceOpen />
@@ -262,63 +251,57 @@ export default async function LandingPage() {
                   produce one.
                 </p>
               )}
-            </div>
+            </ScreenshotFrame>
           </Reveal>
 
           <div className="mt-6">
             <LiveDemoRunner />
           </div>
-        </div>
-      </section>
 
-      {/* Two more real screenshots, not more prose: the patient list and one
-          patient's full event history, straight off this same instance's
-          API. This is what proves the "one audit trail" claim made on the
-          real patient page, rather than just asserting it in a bullet. */}
-      <section className="border-b border-stone-200 bg-white">
-        <div className="mx-auto max-w-5xl px-6 py-20">
-          <Reveal>
-            <p className="font-mono-data text-xs uppercase tracking-wide text-stone-400">
-              Also real, also from this instance&apos;s own database
+          {/* Supporting evidence, not a second flagship moment: the same
+              append-only rows behind the panel above, shown two other
+              ways. Previously its own full-height section (its own
+              eyebrow, heading, and paragraph); folded in here at a smaller
+              size, as one sentence of framing rather than a third
+              extended "this is real" argument. */}
+          <Reveal delayMs={160} className="mt-14 border-t border-stone-200 pt-10">
+            <p className="text-sm leading-relaxed text-stone-600">
+              Also real: the patient list this instance is serving right now, and one of those
+              patients&apos; complete, ordered event history, the same append-only rows the
+              conversation above reads from.
             </p>
-            <h2 className="font-display tracking-display mt-2 text-3xl font-semibold text-stone-900">
-              Every patient is one real record, start to finish
-            </h2>
-            <p className="mt-3 max-w-2xl text-base leading-relaxed text-stone-600">
-              The list below is the actual patient list this instance is serving right now. The
-              timeline next to it is one of those patients&apos; complete, ordered event history:
-              the same append-only rows the state machine, the audit endpoint, and the agent
-              conversation panel above all read from.
-            </p>
+            <div className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <ScreenshotFrame route="triagecopilot.app/dashboard" contentClassName="p-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/screenshots/dashboard.png"
+                    alt="The real TriageCopilot patient list, with live, color-coded status and risk badges"
+                    className="w-full"
+                    width={2208}
+                    height={436}
+                  />
+                </ScreenshotFrame>
+                <p className="mt-2 text-xs text-stone-500">The patient list.</p>
+              </div>
+              <div>
+                <ScreenshotFrame
+                  route={`triagecopilot.app/patients/${featuredPatientId ? featuredPatientId.slice(0, 8) : "…"}`}
+                  contentClassName="p-0"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/screenshots/timeline.png"
+                    alt="A real, ordered excerpt from the start of one patient's event timeline"
+                    className="w-full"
+                    width={1258}
+                    height={840}
+                  />
+                </ScreenshotFrame>
+                <p className="mt-2 text-xs text-stone-500">One patient&apos;s event timeline.</p>
+              </div>
+            </div>
           </Reveal>
-          <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-2">
-            <Reveal>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/screenshots/dashboard.png"
-                alt="The real TriageCopilot patient list, with live, color-coded status and risk badges"
-                className="w-full rounded-xl border border-stone-200 shadow-sm shadow-stone-900/5"
-                width={2208}
-                height={436}
-              />
-              <p className="mt-3 text-sm text-stone-500">
-                The patient list, straight off this instance&apos;s own API.
-              </p>
-            </Reveal>
-            <Reveal delayMs={100}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/screenshots/timeline.png"
-                alt="A real, ordered event timeline for one patient, from intake through follow-up scheduling"
-                className="w-full rounded-xl border border-stone-200 shadow-sm shadow-stone-900/5"
-                width={1260}
-                height={1350}
-              />
-              <p className="mt-3 text-sm text-stone-500">
-                One patient&apos;s full event history, in the order it actually happened.
-              </p>
-            </Reveal>
-          </div>
         </div>
       </section>
 
@@ -347,9 +330,7 @@ export default async function LandingPage() {
         <div className="mx-auto max-w-4xl px-6 py-20">
           <Reveal>
             <Eyebrow>Architecture</Eyebrow>
-            <h2 className="font-display tracking-display mt-2 text-3xl font-semibold text-stone-900">
-              What the architecture actually enforces
-            </h2>
+            <h2 className={SECTION_HEADING}>What the architecture actually enforces</h2>
           </Reveal>
           <div className="mt-10 divide-y divide-stone-200 border-t border-stone-200">
             {PRINCIPLES.map((p, i) => (
@@ -371,7 +352,7 @@ export default async function LandingPage() {
       <section className="mx-auto max-w-4xl px-6 py-20">
         <Reveal>
           <Eyebrow>Product notes</Eyebrow>
-          <h2 className="font-display tracking-display mt-2 text-3xl font-semibold text-stone-900">
+          <h2 className={SECTION_HEADING}>
             Built after looking closely at what real triage products are missing
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-relaxed text-stone-600">
