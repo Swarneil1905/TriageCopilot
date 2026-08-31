@@ -5,7 +5,7 @@ import { RiskBadge } from "@/components/RiskBadge";
 import { NewPatientForm } from "@/components/NewPatientForm";
 
 function lastUpdated(patient: PatientWorldState): string {
-  if (patient.events.length === 0) return "-";
+  if (patient.events.length === 0) return "None yet";
   const last = patient.events[patient.events.length - 1];
   return new Date(last.createdAt).toLocaleString();
 }
@@ -42,7 +42,7 @@ export default async function PatientListPage() {
       )}
 
       {!loadError && patients.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white">
+        <div className="surface-flat overflow-x-auto">
           <table className="min-w-full divide-y divide-stone-200 text-sm">
             <thead className="bg-stone-50 text-left text-xs font-medium uppercase tracking-wide text-stone-500">
               <tr>
@@ -72,7 +72,7 @@ export default async function PatientListPage() {
                   <td className="px-4 py-3">
                     <RiskBadge riskLevel={patient.riskLevel} />
                   </td>
-                  <td className="px-4 py-3 text-stone-500">{lastUpdated(patient)}</td>
+                  <td className="font-mono-data px-4 py-3 text-xs text-stone-500">{lastUpdated(patient)}</td>
                 </tr>
               ))}
             </tbody>
