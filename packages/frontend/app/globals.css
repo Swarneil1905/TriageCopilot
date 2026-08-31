@@ -23,6 +23,17 @@ body {
   font-family: Georgia, Cambria, "Times New Roman", Times, serif;
 }
 
+/* A small number of elements animate into view on scroll (see
+   components/Reveal.tsx); anyone who has asked their OS to reduce motion
+   sees the final state immediately instead, no transition at all. */
+@media (prefers-reduced-motion: reduce) {
+  .reveal-on-scroll {
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 /* A monospace stack for anything that's literally data (event types, ids,
    code snippets) rather than prose: reinforces "this is a real running
    system," not a decorative choice. */
@@ -72,15 +83,4 @@ body {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.05) inset,
     0 32px 64px -28px rgba(0, 0, 0, 0.55);
-}
-
-/* Nested inside the hero's dark panel to show literal system output (a
-   real logged event from this instance's own database), styled like a
-   product screenshot inset into the hero rather than parked in a plain
-   side column. Lighter than the panel behind it, with a hairline border,
-   so it still reads as its own distinct plane on top of the gradient. */
-.surface-inset-dark {
-  background: rgba(0, 0, 0, 0.32);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
 }

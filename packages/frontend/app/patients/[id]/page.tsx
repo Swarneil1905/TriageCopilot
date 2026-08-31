@@ -72,9 +72,9 @@ export default async function PatientDetailPage({
               <div>
                 <h3 className="font-semibold text-stone-900">One audit trail</h3>
                 <p className="mt-1 text-sm leading-relaxed text-stone-600">
-                  The assessment in the rail, the timeline on the left, and every event in between all render from
-                  the same append only event log, so there is no separate audit system that can ever drift out of
-                  sync with what actually ran.
+                  The conversation in the rail, the timeline on the left, and every event in between all render
+                  from the same append only event log, so there is no separate audit system that can ever drift
+                  out of sync with what actually ran.
                 </p>
               </div>
             </div>
@@ -107,9 +107,9 @@ export default async function PatientDetailPage({
           </section>
 
           <div className="flex flex-col gap-6 lg:sticky lg:top-6">
-            <section className="surface-rail p-5">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-stone-500">
-                AI assessment
+            <section className="surface-rail p-4">
+              <h2 className="mb-3 px-1 text-sm font-semibold uppercase tracking-wide text-stone-500">
+                Agent conversation
               </h2>
               <AgentReasoningPanel events={patient.events} llmProvider={llmProvider} />
             </section>

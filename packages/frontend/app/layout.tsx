@@ -4,12 +4,18 @@ import { NavBar } from "@/components/NavBar";
 import { SessionProvider } from "@/components/SessionProvider";
 import "./globals.css";
 
-// Deliberately system font stacks, not next/font/google. A Google Fonts
-// fetch failure at build time takes the whole production build down with
-// it, and that's too much blast radius for a typographic nice-to-have.
-// System serif/sans stacks are zero-network-dependency and still read as
-// considered rather than default-Tailwind; see the font-family rules in
-// globals.css.
+// Tried next/font/google (Fraunces + Inter) in this same pass and reverted
+// it after actually reproducing the failure it was meant to avoid: a
+// direct request to fonts.googleapis.com from this sandbox's build failed
+// outright (connection refused, confirmed with a plain curl, not just a
+// next/font retry log), and there is no way from here to confirm Railway's
+// own build step can reach it either. Shipping a font import that might
+// take down the real production build on an unverified network policy is
+// a worse trade than keeping the system stack, so the honest call is to
+// leave this as-is until that can actually be verified against a real
+// Railway build, not assumed. System serif/sans stacks are zero-network-
+// dependency and still read as considered rather than default-Tailwind;
+// see the font-family rules in globals.css.
 
 export const metadata: Metadata = {
   title: "TriageCopilot",
