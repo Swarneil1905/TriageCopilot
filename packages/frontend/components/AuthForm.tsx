@@ -33,13 +33,13 @@ export function AuthForm({ mode }: AuthFormProps) {
       }
       // Updates the one shared session context (NavBar, the landing page's
       // live-demo section) immediately, rather than leaving them showing
-      // stale logged-out state until a full page reload -- router.refresh()
+      // stale logged-out state until a full page reload. router.refresh()
       // alone only invalidates server-rendered data, not this client state.
       await refresh();
       router.push(next);
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong -- please try again.");
+      setError(err instanceof ApiError ? err.message : "Something went wrong, please try again.");
       setPending(false);
     }
   }
@@ -51,7 +51,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       </h1>
       <p className="mt-2 text-sm text-stone-600">
         {mode === "signup"
-          ? "Only needed to run the live AI demo on the landing page -- everything else here (the dashboard, every patient, the audit log) has never required an account."
+          ? "Only needed to run the live AI demo on the landing page. Everything else here (the dashboard, every patient, the audit log) has never required an account."
           : "Welcome back."}
       </p>
 

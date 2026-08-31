@@ -1,5 +1,5 @@
 // Shared domain types, copy-pasted from packages/backend/src/types.ts by
-// design (see the comment there) -- kept dependency-free so the frontend
+// design (see the comment there), kept dependency-free so the frontend
 // never needs to import backend code, just agree on the wire shape.
 
 export type ActorType = "system" | "agent" | "clinician";
@@ -75,7 +75,7 @@ export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  // Only set Content-Type when there's actually a JSON body -- Fastify's
+  // Only set Content-Type when there's actually a JSON body. Fastify's
   // default body parser rejects an empty body when this header is present
   // (FST_ERR_CTP_EMPTY_JSON_BODY), which is exactly what a no-payload POST
   // like /run-triage sends.
@@ -91,7 +91,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // The frontend and backend are different origins (locally, different
     // ports; in production, different Railway subdomains), so the session
     // cookie the auth routes set is only ever sent/received when every
-    // request explicitly opts in like this -- see auth.ts on the backend
+    // request explicitly opts in like this, see auth.ts on the backend
     // for the matching SameSite/Secure reasoning. Harmless for routes that
     // don't touch auth at all.
     credentials: "include",
@@ -209,7 +209,7 @@ export function logOut(): Promise<{ ok: true }> {
 
 /** Resolves to the logged-in user, or null if there's no valid session.
  * /auth/me always responds 200 (with email: null when logged out) rather
- * than 401 -- "not logged in" is the ordinary case for most visitors to a
+ * than 401. "Not logged in" is the ordinary case for most visitors to a
  * public site, not an error, and a 401 here used to show up as a spurious
  * "Failed to load resource" console error on every anonymous page view. */
 export async function getSession(): Promise<SessionUser | null> {

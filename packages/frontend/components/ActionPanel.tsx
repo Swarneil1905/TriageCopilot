@@ -169,7 +169,7 @@ function ClinicianDecisionForm({ patientId }: { patientId: string }) {
         >
           <option value="approved">Approve the agent&apos;s draft</option>
           <option value="modified">Approve with modifications</option>
-          <option value="rejected">Reject -- needs re-triage</option>
+          <option value="rejected">Reject: needs re-triage</option>
         </select>
       </label>
       <label className="block text-sm">
@@ -242,7 +242,7 @@ function ScheduleFollowUpForm({ patientId }: { patientId: string }) {
 }
 
 /**
- * Renders whichever action the current status actually allows -- this is
+ * Renders whichever action the current status actually allows. This is
  * the UI half of the state machine's invariants. The backend rejects
  * illegal transitions regardless (see assertValidAppend), but the UI
  * shouldn't invite the clinician to try one it already knows will fail.

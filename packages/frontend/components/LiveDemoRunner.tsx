@@ -11,7 +11,7 @@ import { RiskBadge } from "@/components/RiskBadge";
 /** The interactive half of the landing page's "watch the AI agent reason"
  * section: gated on login (an anonymous, un-gated button that triggers a
  * real LLM call is a standing invitation to run up the site owner's API
- * bill -- see the 0002 migration's header comment), and renders the run's
+ * bill, see the 0002 migration's header comment), and renders the run's
  * actual reasoning trace inline once it completes. */
 export function LiveDemoRunner() {
   const { user, loading: sessionLoading } = useSession();

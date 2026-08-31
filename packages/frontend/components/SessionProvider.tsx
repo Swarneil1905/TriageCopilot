@@ -15,7 +15,7 @@ const SessionContext = createContext<SessionContextValue | null>(null);
  * A single, shared session check (GET /api/auth/me), mounted once in the
  * root layout. NavBar, the landing page's live-demo section, and the
  * login/signup forms all read from this one context instead of each
- * running their own independent useEffect -- otherwise a client-side
+ * running their own independent useEffect. Otherwise a client-side
  * navigation right after signup/login leaves NavBar (which persists across
  * that navigation and never remounts) showing "Log in" until a full page
  * reload, since nothing would tell its own separate fetch to re-run. This

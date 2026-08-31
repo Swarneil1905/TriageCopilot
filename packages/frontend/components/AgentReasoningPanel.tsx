@@ -9,7 +9,7 @@ interface ToolCallPayload {
 }
 
 function mostRecentRunId(events: DomainEvent[]): string | null {
-  // events arrive sorted ascending by createdAt -- walk backwards for the
+  // events arrive sorted ascending by createdAt, so walk backwards for the
   // last event that belongs to any run at all.
   for (let i = events.length - 1; i >= 0; i--) {
     if (events[i].runId) return events[i].runId;
@@ -132,7 +132,7 @@ export function AgentReasoningPanel({ events, llmProvider }: { events: DomainEve
       <div>
         {header}
         <p className="text-sm text-stone-500">
-          No triage run yet -- this is where the agent&apos;s tool-by-tool reasoning trace will show up once a run
+          No triage run yet. This is where the agent&apos;s tool-by-tool reasoning trace will show up once a run
           kicks off.
         </p>
       </div>
@@ -146,7 +146,7 @@ export function AgentReasoningPanel({ events, llmProvider }: { events: DomainEve
     return (
       <div>
         {header}
-        <p className="text-sm text-stone-500">Triage agent is running -- no tool calls logged yet.</p>
+        <p className="text-sm text-stone-500">Triage agent is running, no tool calls logged yet.</p>
       </div>
     );
   }
@@ -166,7 +166,7 @@ export function AgentReasoningPanel({ events, llmProvider }: { events: DomainEve
             const p = event.payload as { error?: string; retry_count?: number; escalated?: boolean };
             return (
               <li key={event.id} className="rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-800">
-                <span className="font-medium">Retry #{i + 1}:</span> LLM call failed - {p.error ?? "unknown error"}
+                <span className="font-medium">Retry #{i + 1}:</span> LLM call failed: {p.error ?? "unknown error"}
                 {p.escalated ? " (escalated, retries exhausted)" : " (will retry)"}
               </li>
             );

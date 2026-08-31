@@ -12,7 +12,7 @@ const LINKS = [
 ] as const;
 
 // A patient detail page (/patients/[id]) isn't one of the top-level nav
-// destinations, but it's part of the Dashboard section -- highlight
+// destinations, but it's part of the Dashboard section, so highlight
 // "Dashboard" as active there too rather than showing no active state.
 function isActive(pathname: string, href: string): boolean {
   if (href === "/dashboard") return pathname === "/dashboard" || pathname.startsWith("/patients");
@@ -31,14 +31,14 @@ export function NavBar() {
   }
 
   return (
-    <header className="border-b border-stone-200 bg-white px-6 py-3">
-      <div className="mx-auto flex max-w-6xl items-center justify-between">
-        <Link href="/" className="font-display text-lg font-semibold text-stone-900">
+    <header className="border-b border-stone-200 bg-white px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2">
+        <Link href="/" className="font-display shrink-0 text-lg font-semibold text-stone-900">
           TriageCopilot
         </Link>
 
-        <div className="flex items-center gap-4">
-          <nav className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <nav className="flex flex-wrap items-center gap-1">
             {LINKS.map((link) => {
               const active = isActive(pathname, link.href);
               return (
@@ -46,10 +46,10 @@ export function NavBar() {
                   key={link.href}
                   href={link.href}
                   className={
-                    "rounded-md px-3 py-1.5 text-sm font-medium transition-colors " +
+                    "border-b-2 px-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors sm:px-3 " +
                     (active
-                      ? "bg-teal-50 text-teal-800"
-                      : "text-stone-600 hover:bg-stone-50 hover:text-stone-900")
+                      ? "border-teal-600 text-stone-900"
+                      : "border-transparent text-stone-500 hover:border-stone-300 hover:text-stone-900")
                   }
                 >
                   {link.label}
@@ -58,26 +58,31 @@ export function NavBar() {
             })}
           </nav>
 
-          <div className="flex items-center gap-2 border-l border-stone-200 pl-4 text-sm">
+          <div className="flex shrink-0 items-center gap-2 border-l border-stone-200 pl-4 text-sm">
             {loading ? null : user ? (
               <>
-                <span className="text-stone-500">{user.email}</span>
+                <span className="max-w-[140px] truncate text-stone-500" title={user.email}>
+                  {user.email}
+                </span>
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="rounded-md px-2 py-1 font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-900"
+                  className="shrink-0 rounded-md px-2 py-1 font-medium whitespace-nowrap text-stone-600 hover:bg-stone-50 hover:text-stone-900"
                 >
                   Log out
                 </button>
               </>
             ) : (
               <>
-                <Link href="/login" className="font-medium text-stone-600 hover:text-stone-900">
+                <Link
+                  href="/login"
+                  className="shrink-0 font-medium whitespace-nowrap text-stone-600 hover:text-stone-900"
+                >
                   Log in
                 </Link>
                 <Link
                   href="/signup"
-                  className="rounded-md bg-stone-900 px-2.5 py-1 font-medium text-white hover:bg-stone-700"
+                  className="shrink-0 rounded-md bg-stone-900 px-2.5 py-1 font-medium whitespace-nowrap text-white hover:bg-stone-700"
                 >
                   Sign up
                 </Link>
