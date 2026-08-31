@@ -15,7 +15,7 @@ export default async function PatientDetailPage({
 
   try {
     const patient = await getPatient(id);
-    // Best-effort -- if /health is briefly unreachable, the panel just
+    // Best-effort: if /health is briefly unreachable, the panel just
     // renders without the "Powered by" badge rather than failing the page.
     const llmProvider = await getHealth()
       .then((h) => h.llmProvider)
@@ -43,28 +43,37 @@ export default async function PatientDetailPage({
           <p className="mt-3 max-w-3xl text-sm text-stone-600">{patient.lastTriageSummary}</p>
         )}
 
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <section className="rounded-lg border border-stone-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-500">
+        {/* Timeline is the main, potentially-long column; Agent reasoning +
+            What's next are stacked in a sticky rail alongside it instead of
+            three equal-width columns: three equal boxes made the shorter
+            two look unfinished next to however long the timeline happens to
+            run. The rail staying in view while the timeline scrolls also
+            mirrors a pattern most engineers already know from reviewing a
+            PR (a long main thread, a persistent sidebar of status/actions). */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr] lg:items-start">
+          <section className="surface-flat p-5">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-stone-500">
               Timeline
             </h2>
             <Timeline events={patient.events} />
           </section>
 
-          <section className="rounded-lg border border-stone-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-500">
-              Agent reasoning
-            </h2>
-            <AgentReasoningPanel events={patient.events} llmProvider={llmProvider} />
-          </section>
+          <div className="flex flex-col gap-6 lg:sticky lg:top-6">
+            <section className="surface-rail p-5">
+              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-stone-500">
+                Agent reasoning
+              </h2>
+              <AgentReasoningPanel events={patient.events} llmProvider={llmProvider} />
+            </section>
 
-          <section className="rounded-lg border border-stone-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-500">
-              What&apos;s next
-            </h2>
-            <p className="mb-3 text-sm text-stone-700">{patient.nextAction}</p>
-            <ActionPanel patient={patient} />
-          </section>
+            <section className="surface-raised p-5">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-500">
+                What&apos;s next
+              </h2>
+              <p className="mb-3 text-sm text-stone-700">{patient.nextAction}</p>
+              <ActionPanel patient={patient} />
+            </section>
+          </div>
         </div>
       </div>
     );
