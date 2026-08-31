@@ -1,4 +1,6 @@
-import type { ReactElement } from "react";
+"use client";
+
+import { useState } from "react";
 import type { DomainEvent } from "@/lib/api";
 import { providerLabel } from "@/lib/api";
 
@@ -17,176 +19,216 @@ function mostRecentRunId(events: DomainEvent[]): string | null {
   return null;
 }
 
-const TOOL_META: Record<string, { label: string; icon: ReactElement }> = {
-  get_patient_history: {
-    label: "Looked up prior history",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="h-4 w-4">
-        <circle cx="12" cy="12" r="8" />
-        <path d="M12 8v4l2.5 2.5" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  flag_risk_level: {
-    label: "Flagged a risk level",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="h-4 w-4">
-        <path d="M6 3v18" strokeLinecap="round" />
-        <path d="M6 4h11l-2.5 3.5L17 11H6" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  draft_clinical_summary: {
-    label: "Drafted a clinical summary",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="h-4 w-4">
-        <path d="M6 3h9l3 3v15H6z" strokeLinejoin="round" />
-        <path d="M9 11h6M9 15h6" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  request_human_review: {
-    label: "Requested human review",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="h-4 w-4">
-        <circle cx="9" cy="8" r="3" />
-        <path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" strokeLinecap="round" />
-        <path d="M16 4l2 2 3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
+/** Real elapsed time between two logged events, in milliseconds. Every
+ * number this panel shows is derived straight from createdAt timestamps
+ * already stored in the event log, never fabricated or estimated. */
+function msBetween(a?: DomainEvent, b?: DomainEvent): number | null {
+  if (!a || !b) return null;
+  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+}
+
+function formatDuration(ms: number | null): string {
+  if (ms === null) return "N/A";
+  const clamped = Math.max(ms, 0);
+  if (clamped < 1000) return `${Math.round(clamped)} ms`;
+  return `${(clamped / 1000).toFixed(clamped >= 10000 ? 0 : 2)}s`;
+}
+
+const RISK_ACCENT: Record<string, string> = {
+  low: "border-emerald-400",
+  moderate: "border-amber-400",
+  high: "border-rose-400",
 };
 
-const DEFAULT_TOOL_META = {
-  label: null,
-  icon: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="h-4 w-4">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 008.6 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H2a2 2 0 110-4h.09A1.65 1.65 0 003.6 8.6a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H8a1.65 1.65 0 001-1.51V2a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V8a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" />
-    </svg>
-  ),
+const STEP_LABELS: Record<string, string> = {
+  get_patient_history: "Looked up prior history",
+  flag_risk_level: "Flagged a risk level",
+  draft_clinical_summary: "Drafted a clinical summary",
+  request_human_review: "Requested human review",
 };
 
-/** Renders a tool call's input/output as plain-language detail lines where the
- * shape is known, falling back to raw JSON for anything unrecognized so
- * nothing is ever silently hidden. */
-function DetailLines({ toolName, input, output }: { toolName?: string; input?: Record<string, unknown>; output?: Record<string, unknown> }) {
+/** Plain-language line for one reasoning step, falling back to naming the
+ * raw field for anything unrecognized. This is the only rendering this
+ * panel ever does for a step's detail: there is no separate JSON view, here
+ * or anywhere else in this component, because the people reading this panel
+ * are clinical staff, not engineers inspecting a payload. */
+function StepDetail({ toolName, input, output }: { toolName?: string; input?: Record<string, unknown>; output?: Record<string, unknown> }) {
   switch (toolName) {
     case "flag_risk_level":
       return (
-        <>
-          <div>
-            <span className="font-medium capitalize">{String(input?.risk_level ?? output?.risk_level ?? "unknown")} risk.</span>{" "}
-            {String(input?.justification ?? output?.justification ?? "")}
-          </div>
-        </>
+        <span>
+          <span className="font-medium capitalize">{String(input?.risk_level ?? output?.risk_level ?? "unknown")} risk.</span>{" "}
+          {String(input?.justification ?? output?.justification ?? "")}
+        </span>
       );
     case "draft_clinical_summary":
       return (
-        <>
-          <div>{String(input?.summary ?? output?.summary ?? "")}</div>
-          <div className="mt-1 text-stone-500">
-            Recommended next step: {String(input?.recommended_next_step ?? output?.recommended_next_step ?? "")}
-          </div>
-        </>
+        <span>
+          {String(input?.summary ?? output?.summary ?? "")}
+          {(input?.recommended_next_step ?? output?.recommended_next_step) ? (
+            <>
+              {" "}Recommended next step: {String(input?.recommended_next_step ?? output?.recommended_next_step ?? "")}
+            </>
+          ) : null}
+        </span>
       );
     case "request_human_review":
-      return <div>{String(input?.reason ?? output?.reason ?? "")}</div>;
+      return <span>{String(input?.reason ?? output?.reason ?? "")}</span>;
     case "get_patient_history":
       return (
-        <div className="text-stone-500">
-          {String(output?.prior_triage_runs ?? 0)} prior triage run(s), {String(output?.event_count ?? 0)} event(s) on
-          file.
-        </div>
+        <span>
+          {String(output?.prior_triage_runs ?? 0)} prior triage run(s), {String(output?.event_count ?? 0)} event(s)
+          on file.
+        </span>
       );
     default:
-      return (
-        <>
-          {input !== undefined && (
-            <div className="mt-1">
-              <span className="text-stone-500">input:</span> <code className="text-stone-700">{JSON.stringify(input)}</code>
-            </div>
-          )}
-          {output !== undefined && (
-            <div className="mt-1">
-              <span className="text-stone-500">output:</span> <code className="text-stone-700">{JSON.stringify(output)}</code>
-            </div>
-          )}
-        </>
-      );
+      return <span>Step completed.</span>;
   }
 }
 
-export function AgentReasoningPanel({ events, llmProvider }: { events: DomainEvent[]; llmProvider?: string }) {
+export function AgentReasoningPanel({
+  events,
+  llmProvider,
+  defaultTraceOpen = false,
+}: {
+  events: DomainEvent[];
+  llmProvider?: string;
+  /** The landing page embeds this same panel specifically to show the trace
+   * off to a technical visitor, so it opens expanded there. On a real
+   * patient page, clinical staff get the assessment first and open the
+   * reasoning steps themselves if they want them. */
+  defaultTraceOpen?: boolean;
+}) {
+  const [showSteps, setShowSteps] = useState(defaultTraceOpen);
   const runId = mostRecentRunId(events);
-
-  const header = llmProvider ? (
-    <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-800">
-      <span className="h-1.5 w-1.5 rounded-full bg-teal-600" />
-      Powered by {providerLabel(llmProvider)}
-    </div>
-  ) : null;
 
   if (!runId) {
     return (
-      <div>
-        {header}
-        <p className="text-sm text-stone-500">
-          No triage run yet. This is where the agent&apos;s tool-by-tool reasoning trace will show up once a run
-          kicks off.
-        </p>
-      </div>
+      <p className="text-sm text-stone-500">
+        No triage run yet. Once a run starts, its assessment will appear here.
+      </p>
     );
   }
 
-  const toolCalls = events.filter((e) => e.type === "TriageToolCalled" && e.runId === runId);
-  const errors = events.filter((e) => e.type === "AgentErrorOccurred" && e.runId === runId);
+  // Full timeline for this run, in the order events actually happened, so
+  // each step's duration below is measured against the event that really
+  // preceded it.
+  const runTimeline = events.filter((e) => e.runId === runId);
+  const finished = runTimeline.some((e) => e.type === "TriageAgentCompleted" || e.type === "HumanReviewRequested");
 
-  if (toolCalls.length === 0 && errors.length === 0) {
-    return (
-      <div>
-        {header}
-        <p className="text-sm text-stone-500">Triage agent is running, no tool calls logged yet.</p>
-      </div>
-    );
+  const steps = runTimeline
+    .map((event, i) => ({ event, prevEvent: runTimeline[i - 1] }))
+    .filter(({ event }) => event.type === "TriageToolCalled" || event.type === "AgentErrorOccurred");
+
+  const toolCalls = steps
+    .map((s) => s.event)
+    .filter((e) => e.type === "TriageToolCalled") as DomainEvent<ToolCallPayload>[];
+
+  function findToolCall(toolName: string): ToolCallPayload | undefined {
+    return toolCalls.find((e) => e.payload.tool_name === toolName)?.payload;
   }
 
-  // Interleave by original event order rather than re-sorting, so retries
-  // show up exactly where they happened relative to the tool calls.
-  const merged = events.filter(
-    (e) => e.runId === runId && (e.type === "TriageToolCalled" || e.type === "AgentErrorOccurred")
-  );
+  const riskCall = findToolCall("flag_risk_level");
+  const summaryCall = findToolCall("draft_clinical_summary");
+
+  const riskLevel = riskCall ? String(riskCall.input?.risk_level ?? riskCall.output?.risk_level ?? "") : null;
+  const justification = riskCall
+    ? String(riskCall.input?.justification ?? riskCall.output?.justification ?? "")
+    : null;
+  const summary = summaryCall ? String(summaryCall.input?.summary ?? summaryCall.output?.summary ?? "") : null;
+  const nextStep = summaryCall
+    ? String(summaryCall.input?.recommended_next_step ?? summaryCall.output?.recommended_next_step ?? "")
+    : null;
+
+  const hasAssessment = Boolean(riskLevel || summary);
+  const totalMs = msBetween(runTimeline[0], runTimeline[runTimeline.length - 1]);
 
   return (
     <div>
-      {header}
-      <ol className="space-y-3">
-        {merged.map((event, i) => {
-          if (event.type === "AgentErrorOccurred") {
-            const p = event.payload as { error?: string; retry_count?: number; escalated?: boolean };
-            return (
-              <li key={event.id} className="rounded-md border border-rose-200 bg-rose-50 p-2 text-xs text-rose-800">
-                <span className="font-medium">Retry #{i + 1}:</span> LLM call failed: {p.error ?? "unknown error"}
-                {p.escalated ? " (escalated, retries exhausted)" : " (will retry)"}
-              </li>
-            );
-          }
-          const p = event.payload as ToolCallPayload;
-          const meta = (p.tool_name && TOOL_META[p.tool_name]) || DEFAULT_TOOL_META;
-          const displayLabel = meta.label ?? p.tool_name ?? "unknown_tool";
-          return (
-            <li key={event.id} className="rounded-md border border-stone-200 bg-white p-2 text-xs">
-              <div className="flex items-center gap-1.5 font-medium text-stone-900">
-                <span className="text-teal-700">{meta.icon}</span>
-                {displayLabel}
-              </div>
-              <div className="mt-1 pl-6 text-stone-700">
-                <DetailLines toolName={p.tool_name} input={p.input} output={p.output} />
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+      {hasAssessment ? (
+        <div className="space-y-4 text-sm text-stone-700">
+          {riskLevel && (
+            <div className={`border-l-2 pl-3 ${RISK_ACCENT[riskLevel] ?? "border-stone-300"}`}>
+              <p className="font-semibold text-stone-900">
+                Risk level: <span className="capitalize">{riskLevel}</span>
+              </p>
+              {justification && <p className="mt-1 text-stone-600">{justification}</p>}
+            </div>
+          )}
+          {summary && (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-400">Assessment</h4>
+              <p className="mt-1">{summary}</p>
+            </div>
+          )}
+          {nextStep && (
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-400">Recommended next step</h4>
+              <p className="mt-1">{nextStep}</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-stone-500">
+          {finished
+            ? "The agent completed this run without producing an assessment."
+            : "Triage agent is running. Its assessment will appear here as soon as it drafts one."}
+        </p>
+      )}
+
+      <div className="mt-4 flex items-center justify-between border-t border-stone-100 pt-3 text-xs text-stone-400">
+        <span>{llmProvider ? providerLabel(llmProvider) : "Provider unavailable"}</span>
+        {steps.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowSteps((v) => !v)}
+            className="font-medium text-teal-700 hover:underline"
+          >
+            {showSteps ? "Hide reasoning steps" : "Show reasoning steps"}
+          </button>
+        )}
+      </div>
+
+      {showSteps && steps.length > 0 && (
+        <div className="mt-3">
+          <div className="divide-y divide-stone-100 border-t border-stone-100">
+            {steps.map(({ event, prevEvent }, i) => {
+              const durationMs = msBetween(prevEvent, event);
+              if (event.type === "AgentErrorOccurred") {
+                const p = event.payload as { error?: string; escalated?: boolean };
+                return (
+                  <div key={event.id} className="grid grid-cols-[2rem_1fr] gap-3 py-2.5">
+                    <span className="font-mono-data pt-0.5 text-xs text-stone-300">{String(i + 1).padStart(2, "0")}</span>
+                    <p className="text-xs text-rose-700">
+                      Transient model error, retried automatically.
+                      {p.escalated ? " Retries were exhausted, so this run was escalated for review." : ""}
+                    </p>
+                  </div>
+                );
+              }
+              const p = event.payload as ToolCallPayload;
+              const label = (p.tool_name && STEP_LABELS[p.tool_name]) ?? p.tool_name ?? "Step";
+              return (
+                <div key={event.id} className="grid grid-cols-[2rem_1fr] gap-3 py-2.5">
+                  <span className="font-mono-data pt-0.5 text-xs text-stone-300">{String(i + 1).padStart(2, "0")}</span>
+                  <div className="text-xs text-stone-600">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="font-medium text-stone-800">{label}</span>
+                      <span className="font-mono-data text-stone-400">{formatDuration(durationMs)}</span>
+                    </div>
+                    <div className="mt-0.5">
+                      <StepDetail toolName={p.tool_name} input={p.input} output={p.output} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-2.5 text-xs text-stone-400">
+            Completed in {formatDuration(totalMs)} across {toolCalls.length} step{toolCalls.length === 1 ? "" : "s"}.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

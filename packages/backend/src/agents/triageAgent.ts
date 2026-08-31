@@ -14,7 +14,7 @@ Your job for each patient is to:
 
 You may never approve, deny, prescribe, or otherwise finalize a patient's care yourself. Your
 output is always a draft for a licensed clinician to review, edit, or reject. Every run must end
-with request_human_review -- that call is what hands the case to a human; nothing you do is final
+with request_human_review: that call is what hands the case to a human; nothing you do is final
 until a clinician acts on it.`;
 
 function summarizeIntakeForPrompt(history: DomainEvent[]): string {
@@ -34,7 +34,7 @@ async function sleep(ms: number): Promise<void> {
  * Runs one LLM call with retry/backoff, logging an AgentErrorOccurred event
  * for *every* failed attempt (not just the final one) so the audit trail
  * shows exactly how flaky the run was. Only the final, exhausted attempt is
- * marked escalated: true -- that's the flag stateMachine.ts uses to force
+ * marked escalated: true, which is the flag stateMachine.ts uses to force
  * the patient into urgent_review. Returns null if every attempt failed
  * (already logged, including the escalation); the caller stops the run.
  */
@@ -173,7 +173,7 @@ export async function runTriageAgent(opts: RunTriageAgentOptions): Promise<Patie
 
   // Orchestrator-enforced guardrail: these two events are written together,
   // atomically, regardless of whether the model itself ever called
-  // request_human_review. The agent cannot finalize a case on its own --
+  // request_human_review. The agent cannot finalize a case on its own:
   // the system prompt asks it to call the tool; this is what guarantees it
   // happens either way.
   await eventLog.appendMany([

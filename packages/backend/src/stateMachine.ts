@@ -9,7 +9,7 @@ import {
 
 /**
  * Pure projection: fold an ordered event stream into the patient's current
- * world-state. No I/O, no side effects -- this is the "world-state &
+ * world-state. No I/O, no side effects: this is the "world-state &
  * simulation" primitive from the JD. Replaying the same events always
  * produces the same state, and you can replay a prefix of the stream to see
  * what the state looked like at any point in the past (useful for audits:
@@ -19,7 +19,7 @@ import {
  * without a matching HumanReviewRequested for the same run, we do NOT let
  * the patient silently look "fine." We force status into urgent_review with
  * a safetyAlert explaining why. In a real system this should never happen
- * (the orchestrator writes both events atomically) -- but the projector
+ * (the orchestrator writes both events atomically), but the projector
  * treats "safety-critical event missing" as a hard stop rather than trusting
  * that upstream code always behaves.
  */
@@ -56,7 +56,7 @@ export function projectPatientState(
         break;
 
       case "TriageToolCalled":
-        // No status change -- these are recorded purely for the "agent
+        // No status change: these are recorded purely for the "agent
         // reasoning" trace shown in the ops UI (what tools it called, why).
         break;
 
@@ -106,7 +106,7 @@ export function projectPatientState(
     status = "urgent_review";
     safetyAlert =
       "SAFETY ALERT: triage completed but no human-review request was ever logged for this run. " +
-      "Do not treat this patient as reviewed -- escalate to engineering before proceeding.";
+      "Do not treat this patient as reviewed. Escalate to engineering before proceeding.";
   }
 
   return {
@@ -134,11 +134,11 @@ function describeNextAction(status: PatientStatus, safetyAlert: string | null): 
     case "pending_clinician_review":
       return "Awaiting clinician review of the agent's triage summary.";
     case "urgent_review":
-      return "URGENT: risk flagged high -- needs immediate clinician attention.";
+      return "URGENT: risk flagged high. Needs immediate clinician attention.";
     case "clinician_approved":
       return "Ready to schedule follow-up.";
     case "clinician_rejected":
-      return "Clinician rejected the triage -- needs re-triage or manual intake.";
+      return "Clinician rejected the triage. Needs re-triage or manual intake.";
     case "follow_up_scheduled":
       return "Journey complete for this cycle; follow-up is on the books.";
   }
@@ -147,7 +147,7 @@ function describeNextAction(status: PatientStatus, safetyAlert: string | null): 
 /**
  * Invariant gate: called before every event append. This is the code-level
  * expression of "we think in events, state, and invariants, not just CRUD
- * endpoints" -- illegal transitions are rejected at the write path, not
+ * endpoints": illegal transitions are rejected at the write path, not
  * just hidden in the UI.
  */
 export function assertValidAppend(
@@ -175,7 +175,7 @@ export function assertValidAppend(
     case "TriageAgentStarted":
       if (!["intake_submitted", "clinician_rejected"].includes(status)) {
         throw new InvariantViolationError(
-          `Cannot start triage from status "${status}" -- intake must be submitted first (or a prior triage rejected).`
+          `Cannot start triage from status "${status}": intake must be submitted first (or a prior triage rejected).`
         );
       }
       if (pendingRunId) {
@@ -190,7 +190,7 @@ export function assertValidAppend(
     case "AgentErrorOccurred":
       if (status !== "triage_in_progress") {
         throw new InvariantViolationError(
-          `Cannot record agent activity from status "${status}" -- no triage run is in progress.`
+          `Cannot record agent activity from status "${status}": no triage run is in progress.`
         );
       }
       if (!newRunId || newRunId !== pendingRunId) {
@@ -207,7 +207,7 @@ export function assertValidAppend(
     case "ClinicianDecisionRecorded":
       if (!["pending_clinician_review", "urgent_review"].includes(status)) {
         throw new InvariantViolationError(
-          `Cannot record a clinician decision from status "${status}" -- ` +
+          `Cannot record a clinician decision from status "${status}": ` +
             "the human-in-the-loop gate requires a completed, reviewed triage first."
         );
       }
@@ -216,7 +216,7 @@ export function assertValidAppend(
     case "FollowUpScheduled":
       if (status !== "clinician_approved") {
         throw new InvariantViolationError(
-          `Cannot schedule follow-up from status "${status}" -- requires clinician approval first.`
+          `Cannot schedule follow-up from status "${status}": requires clinician approval first.`
         );
       }
       break;

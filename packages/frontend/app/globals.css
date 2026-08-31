@@ -59,3 +59,28 @@ body {
   border: 1px solid #edebe9;
   border-radius: 12px;
 }
+
+/* The landing page hero's dark panel: the entire hero lives inside this,
+   not just a side card. This is the one deliberately loud, high contrast
+   surface on the whole site, on purpose, so the hero reads as a real
+   product's front door instead of another plain white content section.
+   A subtle radial gradient rather than a flat fill gives it depth without
+   needing a photograph or any stock art. */
+.surface-hero-dark {
+  background: radial-gradient(130% 160% at 12% -10%, #2b2725 0%, #1c1917 45%, #100e0c 100%);
+  border-radius: 28px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 32px 64px -28px rgba(0, 0, 0, 0.55);
+}
+
+/* Nested inside the hero's dark panel to show literal system output (a
+   real logged event from this instance's own database), styled like a
+   product screenshot inset into the hero rather than parked in a plain
+   side column. Lighter than the panel behind it, with a hairline border,
+   so it still reads as its own distinct plane on top of the gradient. */
+.surface-inset-dark {
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}

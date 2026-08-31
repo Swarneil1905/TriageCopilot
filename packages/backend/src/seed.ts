@@ -5,7 +5,7 @@ import { PgEventLog } from "./eventLog.js";
 import { runTriageAgent } from "./agents/triageAgent.js";
 import { FakeProvider, ProviderTurn } from "./agents/llmProvider.js";
 
-// All patients here are fictional, generated for demo purposes only -- no
+// All patients here are fictional, generated for demo purposes only. No
 // real PHI. Names, complaints, and scores are placeholders chosen to
 // exercise specific code paths (low risk / high risk / a simulated agent
 // failure / an untouched fresh intake), not to represent real people.
@@ -85,7 +85,7 @@ function highRiskScript(): ProviderTurn[] {
         {
           id: "4",
           name: "request_human_review",
-          input: { reason: "High risk flagged -- needs immediate clinician attention." },
+          input: { reason: "High risk flagged: needs immediate clinician attention." },
         },
       ],
       text: null,
@@ -133,7 +133,7 @@ async function main() {
     console.log(`  [1/4] Alex Rivera        -> ${(await log.getState()).status}`);
   }
 
-  // 2. High risk: left at urgent_review, awaiting a clinician -- deliberately not resolved.
+  // 2. High risk: left at urgent_review, awaiting a clinician. Deliberately not resolved.
   {
     const { id } = await createPatient(pool, "Jordan Blake (synthetic)");
     await appendEvent(pool, nameOf, {

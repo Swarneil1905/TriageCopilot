@@ -26,6 +26,20 @@ const PRINCIPLES = [
   },
 ] as const;
 
+// Real, checkable numbers pulled from this codebase, not a marketing
+// metrics row. Each one is something a visitor could go verify for
+// themselves in the repo: the event union in types.ts, the state machine's
+// status union, the backend test suite CI actually runs, and the single
+// transactional write path the orchestrator uses to close a run. No
+// business metric here is invented, because none exist yet: this is a
+// solo prototype, not a company with a customer base to cite.
+const STATS = [
+  { value: "9", label: "event types in the append-only log" },
+  { value: "8", label: "patient statuses the state machine can reach" },
+  { value: "51", label: "backend tests, run against a real Postgres in CI" },
+  { value: "1", label: "transactional path writes every run's completion" },
+] as const;
+
 export default async function LandingPage() {
   let patientCount: number | null = null;
   let featuredEvents: Awaited<ReturnType<typeof getPatients>>[number]["events"] | null = null;
@@ -51,57 +65,80 @@ export default async function LandingPage() {
 
   return (
     <div>
-      {/* Hero */}
-      <section className="border-b border-stone-200 bg-white">
-        <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 px-6 py-16 lg:grid-cols-[1.1fr_1fr] lg:py-24">
-          <div>
-            <p className="mb-3 text-sm font-medium uppercase tracking-wide text-teal-700">
-              A synthetic care-ops prototype
-            </p>
-            <h1 className="font-display text-3xl font-semibold leading-[1.15] text-stone-900 sm:text-4xl">
-              An AI triage agent that is architecturally incapable of finalizing a decision.
-            </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-stone-600">
-              TriageCopilot works a synthetic patient&apos;s intake end to end, tool call by tool
-              call, then hands every single case to a human clinician. Not because the prompt
-              asks nicely: because the orchestrator enforces it.
-            </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link
-                href="/dashboard"
-                className="rounded-md bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-600"
-              >
-                View the live dashboard
-              </Link>
-              <Link
-                href="/how-it-works"
-                className="rounded-md border border-stone-300 px-5 py-2.5 text-sm font-semibold text-stone-800 transition-colors hover:border-stone-400 hover:bg-stone-50"
-              >
-                See how it works
-              </Link>
-            </div>
-            {patientCount !== null && (
-              <p className="mt-6 text-xs text-stone-400">
-                {patientCount} synthetic patient{patientCount === 1 ? "" : "s"} currently on the
-                dashboard, live from this instance&apos;s own database.
-              </p>
-            )}
-          </div>
+      {/* Hero. Structured after Abridge's actual homepage layout: the hero
+          is not text sitting beside a card, it is one large dark panel on
+          an otherwise plain page, with the headline, subtext, and CTAs all
+          living inside it. The real event-log snippet is nested inside the
+          same panel like a product screenshot, not parked in a side
+          column, and the stat row sits on the plain page just below the
+          panel, matching where Abridge places its own stat row relative
+          to its hero. */}
+      <section className="border-b border-stone-200">
+        <div className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
+          <div className="surface-hero-dark px-6 py-14 sm:px-10 sm:py-16 lg:px-14 lg:py-20">
+            <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1.15fr_1fr]">
+              <div>
+                <span className="inline-flex items-center gap-2 rounded-full border border-teal-400/30 bg-teal-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-teal-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-teal-300" />
+                  A synthetic care-ops prototype
+                </span>
+                <h1 className="font-display mt-6 max-w-xl text-4xl font-semibold leading-[1.05] text-white sm:text-5xl lg:text-6xl">
+                  An AI triage agent that is{" "}
+                  <span className="text-teal-300">architecturally incapable</span> of finalizing a
+                  decision.
+                </h1>
+                <p className="mt-6 max-w-lg text-base leading-relaxed text-stone-300 sm:text-lg">
+                  TriageCopilot works a synthetic patient&apos;s intake end to end, tool call by
+                  tool call, then hands every single case to a human clinician. Not because the
+                  prompt asks nicely: because the orchestrator enforces it.
+                </p>
+                <div className="mt-9 flex flex-wrap items-center gap-3">
+                  <Link
+                    href="/dashboard"
+                    className="rounded-md bg-teal-300 px-5 py-2.5 text-sm font-semibold text-stone-900 transition-colors hover:bg-teal-200"
+                  >
+                    View the live dashboard
+                  </Link>
+                  <Link
+                    href="/how-it-works"
+                    className="rounded-md border border-white/25 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                  >
+                    See how it works
+                  </Link>
+                </div>
+                <p className="mt-7 text-xs text-stone-400">
+                  {patientCount !== null && (
+                    <>
+                      {patientCount} synthetic patient{patientCount === 1 ? "" : "s"} currently on
+                      the dashboard, live from this instance&apos;s own database
+                      {" · "}
+                    </>
+                  )}
+                  <a
+                    href="https://github.com/Swarneil1905/TriageCopilot"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-teal-300 hover:underline"
+                  >
+                    View the source on GitHub →
+                  </a>
+                </p>
+              </div>
 
-          {/* Real data, not stock art: an actual event this instance logged,
-              shown as what it is (a row from the append-only event log)
-              rather than an illustration standing in for "AI stuff happens
-              here." */}
-          <div className="surface-raised overflow-hidden">
-            <div className="flex items-center gap-1.5 border-b border-stone-100 bg-stone-50 px-4 py-2.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-300" />
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-300" />
-              <span className="font-mono-data ml-2 text-xs text-stone-400">events · append-only log</span>
-            </div>
-            <pre className="font-mono-data overflow-x-auto px-4 py-4 text-[12.5px] leading-[1.7] text-stone-700">
+              {/* Real data, not stock art: an actual event this instance
+                  logged, shown as what it is (a row from the append-only
+                  event log) rather than an illustration standing in for
+                  "AI stuff happens here." */}
+              <div className="surface-inset-dark overflow-hidden">
+                <div className="flex items-center gap-1.5 border-b border-white/10 px-4 py-2.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-rose-400/80" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400/80" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/80" />
+                  <span className="font-mono-data ml-2 text-xs text-stone-400">events · append-only log</span>
+                </div>
+                <pre className="font-mono-data overflow-x-auto px-4 py-4 text-[12.5px] leading-[1.7] text-stone-300">
 {`{
-  "type": "TriageToolCalled",
+  "type": "`}<span className="text-emerald-300">TriageToolCalled</span>{`",
   "actorType": "agent",
   "actorName": "triage-agent",
   "payload": {
@@ -110,23 +147,42 @@ export default async function LandingPage() {
   }
 }
 {
-  "type": "HumanReviewRequested",
+  "type": "`}<span className="text-emerald-300">HumanReviewRequested</span>{`",
   "actorType": "system",
   "reason": "orchestrator-enforced,
              not model-requested"
 }`}
-            </pre>
+                </pre>
+              </div>
+            </div>
+          </div>
+
+          {/* Real, verifiable numbers from this codebase in place of the
+              customer-logo / adoption-stat row a funded product would show
+              here: there is no customer base to cite honestly, so the claim
+              this row makes is about the engineering, not the business,
+              and every figure traces straight to a file in the repo. */}
+          <div className="mt-12 grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4">
+            {STATS.map((s) => (
+              <div key={s.label}>
+                <p className="font-display text-3xl font-semibold text-stone-900">{s.value}</p>
+                <p className="mt-1.5 text-xs leading-snug text-stone-500">{s.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Watch the AI agent reason */}
       <section className="border-b border-stone-200 bg-stone-50">
-        <div className="mx-auto max-w-4xl px-6 py-16">
-          <h2 className="font-display text-2xl font-semibold text-stone-900">
+        <div className="mx-auto max-w-4xl px-6 py-20">
+          <p className="font-mono-data text-xs uppercase tracking-wide text-stone-400">
+            Live, from this instance&apos;s own database
+          </p>
+          <h2 className="font-display mt-2 text-3xl font-semibold text-stone-900">
             Watch the AI agent reason
           </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-stone-600">
+          <p className="mt-3 max-w-2xl text-base leading-relaxed text-stone-600">
             This is the actual tool-by-tool trace the triage agent produces on a real intake, not a mockup, not a
             screenshot. Every line below is a logged <code className="font-mono-data text-[13px]">TriageToolCalled</code> event.
           </p>
@@ -134,7 +190,7 @@ export default async function LandingPage() {
           <div className="surface-raised mt-8 p-6">
             {featuredEvents ? (
               <>
-                <AgentReasoningPanel events={featuredEvents} llmProvider={llmProvider} />
+                <AgentReasoningPanel events={featuredEvents} llmProvider={llmProvider} defaultTraceOpen />
                 {featuredPatientId && (
                   <Link
                     href={`/patients/${featuredPatientId}`}
@@ -178,13 +234,10 @@ export default async function LandingPage() {
           so it reads that way instead of borrowing the generic SaaS
           feature-grid shape. */}
       <section className="border-y border-stone-200 bg-white">
-        <div className="mx-auto max-w-4xl px-6 py-16">
-          <h2 className="font-display text-2xl font-semibold text-stone-900">
+        <div className="mx-auto max-w-4xl px-6 py-20">
+          <h2 className="font-display text-3xl font-semibold text-stone-900">
             What the architecture actually enforces
           </h2>
-          <p className="font-mono-data mt-3 text-xs text-stone-400">
-            9 event types · 8 patient statuses · 1 transactional write path
-          </p>
           <div className="mt-10 divide-y divide-stone-200 border-t border-stone-200">
             {PRINCIPLES.map((p, i) => (
               <div key={p.title} className="grid grid-cols-[2.5rem_1fr] gap-4 py-6">
@@ -202,8 +255,8 @@ export default async function LandingPage() {
       </section>
 
       {/* Product-notes teaser */}
-      <section className="mx-auto max-w-4xl px-6 py-16">
-        <h2 className="font-display text-2xl font-semibold text-stone-900">
+      <section className="mx-auto max-w-4xl px-6 py-20">
+        <h2 className="font-display text-3xl font-semibold text-stone-900">
           Built after looking closely at what real triage products are missing
         </h2>
         <p className="mt-4 max-w-2xl text-sm leading-relaxed text-stone-600">

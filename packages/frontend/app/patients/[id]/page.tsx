@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ApiError, getHealth, getPatient } from "@/lib/api";
+import { ApiError, getHealth, getPatient, providerLabel } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { RiskBadge } from "@/components/RiskBadge";
 import { Timeline } from "@/components/Timeline";
@@ -43,6 +43,54 @@ export default async function PatientDetailPage({
           <p className="mt-3 max-w-3xl text-sm text-stone-600">{patient.lastTriageSummary}</p>
         )}
 
+        {/* Answers "what's the innovation here" directly on this page instead
+            of in a document nobody opens. Three concrete, checkable claims
+            about this system's architecture, not marketing language, each
+            naming the exact mechanism a CTO could go read for themselves.
+            A plain numbered list rather than a card grid, matching the
+            landing page's own "What the architecture actually enforces"
+            section: one visual language for "here is a real claim about the
+            architecture" everywhere it appears on the site, instead of
+            reinventing a bordered card treatment a second time. */}
+        <div className="mt-6">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-stone-500">
+            How this is built
+          </h2>
+          <div className="divide-y divide-stone-200 border-t border-stone-200">
+            <div className="grid grid-cols-[2.5rem_1fr] gap-4 py-4">
+              <span className="font-mono-data pt-0.5 text-sm text-stone-300">01</span>
+              <div>
+                <h3 className="font-semibold text-stone-900">Enforced handoff</h3>
+                <p className="mt-1 text-sm leading-relaxed text-stone-600">
+                  The agent cannot close out a high risk case on its own. The write path itself blocks a completion
+                  event unless a human review event lands with it, in the same atomic append.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-[2.5rem_1fr] gap-4 py-4">
+              <span className="font-mono-data pt-0.5 text-sm text-stone-300">02</span>
+              <div>
+                <h3 className="font-semibold text-stone-900">One audit trail</h3>
+                <p className="mt-1 text-sm leading-relaxed text-stone-600">
+                  The assessment in the rail, the timeline on the left, and every event in between all render from
+                  the same append only event log, so there is no separate audit system that can ever drift out of
+                  sync with what actually ran.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-[2.5rem_1fr] gap-4 py-4">
+              <span className="font-mono-data pt-0.5 text-sm text-stone-300">03</span>
+              <div>
+                <h3 className="font-semibold text-stone-900">Swappable model layer</h3>
+                <p className="mt-1 text-sm leading-relaxed text-stone-600">
+                  This run used {llmProvider ? providerLabel(llmProvider) : "a configured provider"}. Pointing the
+                  agent at a live model is a change to one file; the safety checks and the log do not change at all.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Timeline is the main, potentially-long column; Agent reasoning +
             What's next are stacked in a sticky rail alongside it instead of
             three equal-width columns: three equal boxes made the shorter
@@ -61,7 +109,7 @@ export default async function PatientDetailPage({
           <div className="flex flex-col gap-6 lg:sticky lg:top-6">
             <section className="surface-rail p-5">
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-stone-500">
-                Agent reasoning
+                AI assessment
               </h2>
               <AgentReasoningPanel events={patient.events} llmProvider={llmProvider} />
             </section>
