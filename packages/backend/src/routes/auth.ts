@@ -9,6 +9,10 @@ import {
   verifyPassword,
 } from "../auth.js";
 import { requireTrustedOrigin } from "../security.js";
+import { isAdminEmail } from "../admin.js";
+import { FREE_REQUEST_LIMIT } from "../quota.js";
+
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
 
 const credentialsSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -124,8 +128,19 @@ export const authRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
     const userId = getSessionUserId(req);
     if (!userId) return reply.send({ email: null });
 
-    const { rows } = await pool.query("select email from users where id = $1", [userId]);
-    const user = rows[0] as { email: string } | undefined;
+    // Auth-and-billing pass: extended with everything the frontend needs to
+    // render admin/subscribed/free-tier state in one call (NavBar's usage
+    // chip, the /billing page, the 402 branches in ActionPanel and
+    // LiveDemoRunner), rather than a second round trip. Purely additive:
+    // every existing consumer (SessionProvider, NavBar) only ever read
+    // .email, so this changes nothing for them.
+    const { rows } = await pool.query(
+      "select email, ai_requests_used, subscription_status from users where id = $1",
+      [userId]
+    );
+    const user = rows[0] as
+      | { email: string; ai_requests_used: number; subscription_status: string | null }
+      | undefined;
     if (!user) {
       // Session refers to a user that no longer exists (e.g. DB reset on
       // redeploy, since this demo Postgres has no persistent volume);
@@ -133,6 +148,18 @@ export const authRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
       clearSessionCookie(reply);
       return reply.send({ email: null });
     }
-    return reply.send({ email: user.email });
+
+    const admin = isAdminEmail(user.email);
+    const subscribed = Boolean(
+      user.subscription_status && ACTIVE_SUBSCRIPTION_STATUSES.has(user.subscription_status)
+    );
+
+    return reply.send({
+      email: user.email,
+      isAdmin: admin,
+      isSubscribed: subscribed,
+      requestsUsed: user.ai_requests_used,
+      requestsRemaining: admin || subscribed ? null : Math.max(0, FREE_REQUEST_LIMIT - user.ai_requests_used),
+    });
   });
 };

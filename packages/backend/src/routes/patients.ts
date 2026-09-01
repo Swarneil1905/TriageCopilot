@@ -1,10 +1,12 @@
-import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from "fastify";
+import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { getPool } from "../db.js";
 import { createPatient, listPatientsWithState } from "../eventStore.js";
 import { PgEventLog } from "../eventLog.js";
 import { runTriageAgent } from "../agents/triageAgent.js";
 import { makeLLMProvider } from "../agents/llmProvider.js";
+import { requireAuth } from "../auth.js";
+import { makeRequireQuota, recordAgentRun } from "../quota.js";
 
 const createPatientSchema = z.object({
   display_name: z.string().min(1),
@@ -34,8 +36,8 @@ function badRequest(reply: FastifyReply, issues: unknown) {
   return reply.code(400).send({ error: "Validation error", details: issues });
 }
 
-/** Validates :id is a well-formed UUID before it ever reaches a SQL query --
- * an unknown-but-valid UUID still 404s via PatientNotFoundError, but a
+/** Validates :id is a well-formed UUID before it ever reaches a SQL query.
+ * An unknown-but-valid UUID still 404s via PatientNotFoundError, but a
  * malformed one (typo, wrong resource, whatever) gets a clean 400 instead
  * of a raw Postgres "invalid input syntax for uuid" surfacing as a 500. */
 function parseIdParam(req: { params: unknown }, reply: FastifyReply): string | null {
@@ -92,16 +94,37 @@ export const patientRoutes: FastifyPluginAsync = async (fastify: FastifyInstance
     return log.getState();
   });
 
-  fastify.post<{ Params: { id: string } }>("/patients/:id/run-triage", async (req, reply) => {
-    const id = parseIdParam(req, reply);
-    if (!id) return;
-    const log = new PgEventLog(pool, id);
-    const provider = makeLLMProvider();
-    // Blocks until the run completes, fails permanently, or hits the turn
-    // cap -- see triageAgent.ts for why every one of those exits still
-    // leaves the patient in a reviewable (or explicitly escalated) state.
-    return runTriageAgent({ eventLog: log, provider });
-  });
+  // Auth-and-billing pass: this route now requires a session, its first
+  // time ever requiring one. Patient data (list, individual records, the
+  // audit log) stays exactly as open and unauthenticated as it has always
+  // been; only this specific action changed, because it's the one that
+  // costs real money once it's not on the free fake provider, and gating a
+  // free-tier quota behind it requires knowing who is asking. See the
+  // README's and SPEC.md's updated self-description for the full reasoning
+  // behind this scope change.
+  fastify.post<{ Params: { id: string } }>(
+    "/patients/:id/run-triage",
+    { preHandler: [requireAuth, makeRequireQuota(pool)] },
+    async (req, reply) => {
+      const id = parseIdParam(req, reply);
+      if (!id) return;
+      const log = new PgEventLog(pool, id);
+      const provider = makeLLMProvider();
+      // Blocks until the run completes, fails permanently, or hits the turn
+      // cap: see triageAgent.ts for why every one of those exits still
+      // leaves the patient in a reviewable (or explicitly escalated) state.
+      const state = await runTriageAgent({ eventLog: log, provider });
+
+      // Only counted after the run actually completed (successfully or via
+      // its own internal escalation path, not a thrown error): a failed
+      // request should never cost part of the caller's free allowance.
+      const userId = (req as FastifyRequest & { userId: string }).userId;
+      const email = (req as FastifyRequest & { userEmail: string }).userEmail;
+      await recordAgentRun(pool, userId, email);
+
+      return state;
+    }
+  );
 
   fastify.post<{ Params: { id: string } }>("/patients/:id/clinician-decision", async (req, reply) => {
     const id = parseIdParam(req, reply);

@@ -7,6 +7,8 @@ import { InvariantViolationError, PatientNotFoundError } from "./types.js";
 import { patientRoutes } from "./routes/patients.js";
 import { authRoutes } from "./routes/auth.js";
 import { demoRoutes } from "./routes/demo.js";
+import { billingRoutes } from "./routes/billing.js";
+import { oauthRoutes } from "./routes/oauth.js";
 import { allowedOrigins } from "./security.js";
 
 /**
@@ -77,6 +79,8 @@ export async function buildServer(): Promise<FastifyInstance> {
   await fastify.register(patientRoutes, { prefix: "/api" });
   await fastify.register(authRoutes, { prefix: "/api" });
   await fastify.register(demoRoutes, { prefix: "/api" });
+  await fastify.register(billingRoutes, { prefix: "/api" });
+  await fastify.register(oauthRoutes, { prefix: "/api" });
 
   return fastify;
 }

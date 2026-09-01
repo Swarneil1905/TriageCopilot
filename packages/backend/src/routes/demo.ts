@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyPluginAsync } from "fastify";
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from "fastify";
 import { getPool } from "../db.js";
 import { createDemoPatient } from "../eventStore.js";
 import { PgEventLog } from "../eventLog.js";
@@ -6,6 +6,7 @@ import { runTriageAgent } from "../agents/triageAgent.js";
 import { makeLLMProvider } from "../agents/llmProvider.js";
 import { requireAuth } from "../auth.js";
 import { requireTrustedOrigin } from "../security.js";
+import { makeRequireQuota, recordAgentRun } from "../quota.js";
 
 // A handful of fictional, varied intake scenarios for the public live-demo
 // button. Picked at random per click so repeat visits don't all look
@@ -67,7 +68,21 @@ export const demoRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
       // (blocked) response would arrive. requireTrustedOrigin runs first,
       // so an untrusted cross-origin request never even reaches the auth
       // check below.
-      preHandler: [requireTrustedOrigin, requireAuth],
+      //
+      // Auth-and-billing pass: makeRequireQuota runs after requireAuth (it
+      // needs req.userId), and before the rate limiter's own injected
+      // preHandler check (see the "hook: preHandler" comment below): a
+      // free-tier user who has already used their lifetime allowance gets a
+      // clear 402 from the quota check, rather than that same request
+      // occasionally instead surfacing as a 429 from the rate limiter,
+      // whichever the two happen to be exhausted by first. This is layered
+      // on top of, not instead of, the per-account rate limit and the
+      // shared daily cap below: those protect against abuse and bugs
+      // regardless of who's asking, even a paying subscriber or the admin
+      // account shouldn't be able to script 1,000 runs in a minute, while
+      // the quota check is the actual business gate on who gets to use the
+      // feature at all.
+      preHandler: [requireTrustedOrigin, requireAuth, makeRequireQuota(pool)],
       config: {
         rateLimit: {
           max: 5,
@@ -113,11 +128,16 @@ export const demoRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
       const provider = makeLLMProvider();
       const state = await runTriageAgent({ eventLog: log, provider });
 
-      const userId = (req as typeof req & { userId: string }).userId;
+      const userId = (req as FastifyRequest & { userId: string }).userId;
+      const email = (req as FastifyRequest & { userEmail: string }).userEmail;
       await pool.query(
         "insert into demo_runs (patient_id, user_id, ip) values ($1, $2, $3)",
         [id, userId, req.ip]
       );
+      // Only counted after the run actually completed: a failed request
+      // never costs part of the caller's free allowance (same rule as
+      // routes/patients.ts's run-triage).
+      await recordAgentRun(pool, userId, email);
 
       return reply.send(state);
     }
