@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ApiError,
   runTriage,
@@ -10,6 +11,7 @@ import {
   recordClinicianDecision,
   type PatientWorldState,
 } from "@/lib/api";
+import { useSession } from "@/components/SessionProvider";
 
 function ErrorText({ message }: { message: string | null }) {
   if (!message) return null;
@@ -94,20 +96,54 @@ function IntakeForm({ patientId }: { patientId: string }) {
 
 function RunTriageButton({ patientId }: { patientId: string }) {
   const router = useRouter();
+  const { user, loading: sessionLoading } = useSession();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quotaExhausted, setQuotaExhausted] = useState(false);
 
   async function onClick() {
     setPending(true);
     setError(null);
+    setQuotaExhausted(false);
     try {
       await runTriage(patientId);
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "The triage run failed unexpectedly.");
+      if (err instanceof ApiError && err.status === 402) {
+        setError(err.message);
+        setQuotaExhausted(true);
+      } else if (err instanceof ApiError && err.status === 401) {
+        // The session most likely expired mid-page; refresh() isn't called
+        // here on purpose (a full reload is the simplest way to get the
+        // logged-out state everywhere else on the page, not just this
+        // button, back in sync).
+        setError("Your session has expired. Please log in again.");
+      } else {
+        setError(err instanceof ApiError ? err.message : "The triage run failed unexpectedly.");
+      }
     } finally {
       setPending(false);
     }
+  }
+
+  // This route never required a login before this pass added a real
+  // free-tier quota to it (see routes/patients.ts and the auth-billing
+  // prompt's own scope-change callout): triggering a real agent run is now
+  // the one action here that costs real money, so it's the one action here
+  // that needs to know who's asking. Patient data itself (this whole page,
+  // the audit log) stays exactly as open as it's always been.
+  if (!sessionLoading && !user) {
+    return (
+      <div>
+        <p className="mb-2 text-sm text-stone-600">Running the triage agent now requires an account.</p>
+        <Link
+          href={`/login?next=${encodeURIComponent(`/patients/${patientId}`)}`}
+          className="inline-block rounded-md border border-teal-700 px-3 py-1.5 text-sm font-semibold text-teal-800 hover:bg-teal-50"
+        >
+          Log in to run the agent
+        </Link>
+      </div>
+    );
   }
 
   return (
@@ -115,12 +151,19 @@ function RunTriageButton({ patientId }: { patientId: string }) {
       <button
         type="button"
         onClick={onClick}
-        disabled={pending}
+        disabled={pending || sessionLoading}
         className="rounded-md bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? "Running triage agent…" : "Run triage agent"}
       </button>
       <ErrorText message={error} />
+      {quotaExhausted && (
+        <p className="mt-2 text-sm text-stone-600">
+          <Link href="/billing" className="font-semibold text-teal-700 hover:underline">
+            Subscribe for unlimited runs →
+          </Link>
+        </p>
+      )}
     </div>
   );
 }
