@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildServer } from "../src/app.js";
 import { closePool } from "../src/db.js";
+import { FREE_REQUEST_LIMIT } from "../src/quota.js";
 
 // Real-Postgres integration tests, same reasoning as api.test.ts: this is
 // the one place worth exercising the actual HTTP + cookie round trip rather
@@ -46,7 +47,17 @@ describe("Auth API (real Postgres)", () => {
 
     const meRes = await app.inject({ method: "GET", url: "/api/auth/me", headers: { cookie } });
     expect(meRes.statusCode).toBe(200);
-    expect(meRes.json()).toEqual({ email });
+    // Auth-and-billing pass: /auth/me now also reports admin/subscription
+    // state and free-tier usage (see quota.ts and routes/auth.ts). A brand
+    // new signup is a plain, non-admin, non-subscribed free-tier account
+    // that hasn't used any of its allowance yet.
+    expect(meRes.json()).toEqual({
+      email,
+      isAdmin: false,
+      isSubscribed: false,
+      requestsUsed: 0,
+      requestsRemaining: FREE_REQUEST_LIMIT,
+    });
   });
 
   it("rejects a duplicate signup email with 409", async () => {

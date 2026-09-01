@@ -3,8 +3,8 @@ import type { FastifyInstance } from "fastify";
 import { buildServer } from "../src/app.js";
 import { closePool } from "../src/db.js";
 
-// This is the one test file in the suite that needs a real Postgres --
-// per SPEC.md §12/§13, `docker compose up -d db` runs before `npm test`.
+// This is the one test file in the suite that needs a real Postgres.
+// Per SPEC.md §12/§13, `docker compose up -d db` runs before `npm test`.
 // Every other test file (stateMachine/tools/llmProvider/triageAgent) stays
 // pure and DB-free by design; this one exists specifically to prove the
 // HTTP layer + PgEventLog + real transactions all wire together correctly.
@@ -19,6 +19,30 @@ describe("API integration (real Postgres)", () => {
     await app.close();
     await closePool();
   });
+
+  function uniqueEmail() {
+    return `api-test-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
+  }
+
+  function extractSessionCookie(res: { headers: Record<string, unknown> }): string {
+    const raw = res.headers["set-cookie"];
+    const list = Array.isArray(raw) ? raw : raw ? [String(raw)] : [];
+    for (const c of list) {
+      const match = /tc_session=([^;]+)/.exec(c);
+      if (match) return `tc_session=${match[1]}`;
+    }
+    throw new Error("no tc_session cookie in response");
+  }
+
+  async function signUpAndGetCookie(): Promise<string> {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/auth/signup",
+      payload: { email: uniqueEmail(), password: "correct-horse-battery" },
+    });
+    expect(res.statusCode).toBe(201);
+    return extractSessionCookie(res);
+  }
 
   it("walks a full patient journey through the HTTP API, invariants and all", async () => {
     const createRes = await app.inject({
@@ -39,16 +63,26 @@ describe("API integration (real Postgres)", () => {
     expect(intakeRes.statusCode).toBe(200);
     expect(intakeRes.json().status).toBe("intake_submitted");
 
+    // Auth-and-billing pass: run-triage now requires a session, its first
+    // time ever requiring one (see the README's and SPEC.md's updated
+    // self-description). A fresh signup here is well under the free-tier
+    // lifetime limit, so this is just the ordinary happy path.
+    const cookie = await signUpAndGetCookie();
+
     // Uses the default fake LLM provider (LLM_PROVIDER unset in the test
-    // environment) -- a well-behaved low-risk script, per makeLLMProvider.
-    const triageRes = await app.inject({ method: "POST", url: `/api/patients/${patientId}/run-triage` });
+    // environment), a well-behaved low-risk script, per makeLLMProvider.
+    const triageRes = await app.inject({
+      method: "POST",
+      url: `/api/patients/${patientId}/run-triage`,
+      headers: { cookie },
+    });
     expect(triageRes.statusCode).toBe(200);
     const afterTriage = triageRes.json();
     expect(afterTriage.status).toBe("pending_clinician_review");
     expect(afterTriage.riskLevel).toBe("low");
 
     // Invariant enforcement surfaces as a real 409 over HTTP, not just as an
-    // internal exception -- scheduling a follow-up before clinician sign-off
+    // internal exception: scheduling a follow-up before clinician sign-off
     // must be rejected.
     const prematureFollowUp = await app.inject({
       method: "POST",
@@ -118,7 +152,7 @@ describe("API integration (real Postgres)", () => {
   it("health check responds ok and reports the active LLM provider", async () => {
     const res = await app.inject({ method: "GET", url: "/health" });
     expect(res.statusCode).toBe(200);
-    // llmProvider mirrors whatever LLM_PROVIDER is set to at runtime -- the
+    // llmProvider mirrors whatever LLM_PROVIDER is set to at runtime. The
     // frontend reads this to render the "Powered by <provider>" badge on
     // the Agent Reasoning panel, so it needs to be a real, live value
     // rather than hardcoded, and tests must not assume a specific one.
