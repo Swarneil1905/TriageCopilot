@@ -120,15 +120,17 @@ describe("Auth API (real Postgres)", () => {
 
     const logoutRes = await app.inject({ method: "POST", url: "/api/auth/logout", headers: { cookie } });
     expect(logoutRes.statusCode).toBe(200);
-    // clearCookie sends Set-Cookie with an empty value + an expiry in the
-    // past -- that's the actual mechanism, and it's a client-side
+    // clearCookie sends Set-Cookie with an empty value plus an expiry in the
+    // past: that's the actual mechanism, and it's a client-side
     // instruction, not server-side revocation. This session scheme is a
     // stateless signed token with no server-side session store (see
     // auth.ts), so a client that ignores the clear and resends the exact
     // same cookie string is still authenticated until it naturally expires
-    // (30 days) -- a deliberate simplicity/statelessness tradeoff worth
-    // being explicit about rather than a bug, and the reason there's no
-    // "log out everywhere" or token-revocation feature here.
+    // (1 day, shortened from an earlier 30, see the security hardening
+    // pass's finding 6 comment on SESSION_TTL_MS in auth.ts), a deliberate
+    // simplicity/statelessness tradeoff worth being explicit about rather
+    // than a bug, and the reason there's no "log out everywhere" or
+    // token-revocation feature here.
     const setCookieHeader = logoutRes.headers["set-cookie"];
     expect(String(setCookieHeader)).toMatch(/tc_session=;/);
 
@@ -139,7 +141,7 @@ describe("Auth API (real Postgres)", () => {
   });
 
   it("/auth/me is 200 with email:null for no cookie or a garbage cookie", async () => {
-    // Deliberately 200, not 401 -- "not logged in" is the ordinary case for
+    // Deliberately 200, not 401: "not logged in" is the ordinary case for
     // most requests to this endpoint (it's checked on every page load), not
     // an error. See the comment on this route for why.
     const noCookie = await app.inject({ method: "GET", url: "/api/auth/me" });
