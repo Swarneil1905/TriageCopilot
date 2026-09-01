@@ -5,10 +5,11 @@ import { PgEventLog } from "../eventLog.js";
 import { runTriageAgent } from "../agents/triageAgent.js";
 import { makeLLMProvider } from "../agents/llmProvider.js";
 import { requireAuth } from "../auth.js";
+import { requireTrustedOrigin } from "../security.js";
 
 // A handful of fictional, varied intake scenarios for the public live-demo
 // button. Picked at random per click so repeat visits don't all look
-// identical -- though note that with LLM_PROVIDER=fake (the zero-cost
+// identical, though note that with LLM_PROVIDER=fake (the zero-cost
 // public default) the *agent's* response is still the same scripted output
 // regardless of which one is picked, same as every other route on this
 // fake provider; only once LLM_PROVIDER=anthropic or =ollama is live does
@@ -57,19 +58,28 @@ export const demoRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
   fastify.post(
     "/demo/run",
     {
-      preHandler: requireAuth,
+      // Security hardening pass, finding 3: fixing CORS (finding 1) stops a
+      // malicious page's JavaScript from reading this route's response, but
+      // not the browser from sending the cookie-bearing request in the
+      // first place. And for this specific route, the attacker doesn't
+      // need to read the response for the attack to matter: the LLM call
+      // and the cost/quota consumption already happened by the time the
+      // (blocked) response would arrive. requireTrustedOrigin runs first,
+      // so an untrusted cross-origin request never even reaches the auth
+      // check below.
+      preHandler: [requireTrustedOrigin, requireAuth],
       config: {
         rateLimit: {
           max: 5,
           timeWindow: "15 minutes",
           // @fastify/rate-limit defaults to an onRequest hook, which runs
-          // before this route's own preHandler (requireAuth) -- forcing it
+          // before this route's own preHandler (requireAuth). Forcing it
           // to run as a preHandler instead means req.userId (set by
           // requireAuth) is already available when keyGenerator runs, so
           // the quota is genuinely per-account rather than falling back to
           // per-IP for every request because auth hadn't happened yet.
           hook: "preHandler",
-          // Rate limit per logged-in user, not per IP -- several visitors
+          // Rate limit per logged-in user, not per IP: several visitors
           // behind the same NAT/office IP shouldn't share one quota, and a
           // logged-in user id is a more meaningful identity here anyway.
           keyGenerator: (req) => (req as typeof req & { userId?: string }).userId ?? req.ip,
