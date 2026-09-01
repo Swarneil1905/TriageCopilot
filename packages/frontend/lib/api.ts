@@ -50,20 +50,34 @@ export interface PatientWorldState {
   events: DomainEvent[];
 }
 
+// Mirrors quota.ts's QuotaStatus on the backend: attached to a 402 response
+// body from either /patients/:id/run-triage or /demo/run, so the UI can
+// render the free-tier-exhausted state (ActionPanel, LiveDemoRunner)
+// without a second round trip to /auth/me.
+export interface QuotaStatus {
+  allowed: boolean;
+  reason: "admin" | "subscribed" | "free_tier_remaining" | "free_tier_exhausted";
+  requestsUsed: number;
+  requestsRemaining: number | null;
+}
+
 export interface ApiErrorBody {
   error: string;
   details?: unknown;
+  quota?: QuotaStatus;
 }
 
 export class ApiError extends Error {
   status: number;
   details?: unknown;
+  quota?: QuotaStatus;
 
   constructor(status: number, body: ApiErrorBody) {
     super(body.error || `Request failed with status ${status}`);
     this.name = "ApiError";
     this.status = status;
     this.details = body.details;
+    this.quota = body.quota;
   }
 }
 
@@ -163,7 +177,7 @@ export function scheduleFollowUp(
   });
 }
 
-// --- Health / provider badge -------------------------------------------
+// Health / provider badge
 
 export interface HealthResponse {
   ok: boolean;
@@ -189,18 +203,34 @@ export async function getHealth(): Promise<HealthResponse> {
   return res.json() as Promise<HealthResponse>;
 }
 
-// --- Auth ---------------------------------------------------------------
+// Auth
 
+// Auth-and-billing pass: extended with everything the frontend needs to
+// render admin/subscribed/free-tier state (NavBar's usage chip, the
+// /billing page, the 402 branches in ActionPanel and LiveDemoRunner)
+// without a second round trip. requestsRemaining is null once
+// admin/subscribed: "unlimited," not a number, matching quota.ts's own
+// QuotaStatus shape on the backend.
 export interface SessionUser {
   email: string;
+  isAdmin: boolean;
+  isSubscribed: boolean;
+  requestsUsed: number;
+  requestsRemaining: number | null;
 }
 
-export function signUp(email: string, password: string): Promise<SessionUser> {
-  return request<SessionUser>("/auth/signup", { method: "POST", body: JSON.stringify({ email, password }) });
+// signUp/logIn intentionally return only { email }, not the full
+// SessionUser: AuthForm.tsx never reads this value directly, it always
+// calls refresh() right after (see SessionProvider.tsx), which re-fetches
+// /auth/me for the authoritative, full session state. Keeping these two
+// narrowly typed avoids claiming a richer response than these two specific
+// endpoints actually send.
+export function signUp(email: string, password: string): Promise<{ email: string }> {
+  return request("/auth/signup", { method: "POST", body: JSON.stringify({ email, password }) });
 }
 
-export function logIn(email: string, password: string): Promise<SessionUser> {
-  return request<SessionUser>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+export function logIn(email: string, password: string): Promise<{ email: string }> {
+  return request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
 }
 
 export function logOut(): Promise<{ ok: true }> {
@@ -213,15 +243,43 @@ export function logOut(): Promise<{ ok: true }> {
  * public site, not an error, and a 401 here used to show up as a spurious
  * "Failed to load resource" console error on every anonymous page view. */
 export async function getSession(): Promise<SessionUser | null> {
-  const { email } = await request<{ email: string | null }>("/auth/me");
-  return email ? { email } : null;
+  const data = await request<{ email: string | null } & Partial<Omit<SessionUser, "email">>>("/auth/me");
+  if (!data.email) return null;
+  return {
+    email: data.email,
+    isAdmin: data.isAdmin ?? false,
+    isSubscribed: data.isSubscribed ?? false,
+    requestsUsed: data.requestsUsed ?? 0,
+    requestsRemaining: data.requestsRemaining ?? null,
+  };
 }
 
-// --- Live demo ------------------------------------------------------------
+// Live demo
 
 /** Triggers a real triage-agent run against a fresh, clearly-labeled demo
  * patient. Requires a logged-in session; the backend also enforces a
  * per-account rate limit and a shared daily cap (see routes/demo.ts). */
 export function runLiveDemo(): Promise<PatientWorldState> {
   return request<PatientWorldState>("/demo/run", { method: "POST" });
+}
+
+// Billing
+
+/** Starts a hosted Stripe Checkout session for the $19.99/month
+ * subscription and resolves to its redirect URL. The caller is expected to
+ * navigate the browser there directly (window.location.href = url), not
+ * treat this as a fetch-and-render response: Checkout is Stripe's own
+ * hosted page, not something rendered inside this app. A 503 body means
+ * Stripe isn't configured on this deployment yet (see routes/billing.ts). */
+export function startCheckout(): Promise<{ url: string }> {
+  return request<{ url: string }>("/billing/checkout", { method: "POST" });
+}
+
+/** Starts a hosted Stripe Billing Portal session (cancel, update payment
+ * method, view invoices) and resolves to its redirect URL, same
+ * navigate-there-directly contract as startCheckout. A 400 body means this
+ * account has no Stripe customer yet (never started a checkout); a 503
+ * means Stripe isn't configured on this deployment yet. */
+export function openBillingPortal(): Promise<{ url: string }> {
+  return request<{ url: string }>("/billing/portal", { method: "POST" });
 }

@@ -4,9 +4,7 @@
 
 An event-sourced care-ops prototype where an LLM triage agent works a synthetic patient's
 intake end to end, tool call by tool call, then is **architecturally incapable of closing the
-loop itself** - every run ends in a `request_human_review` handoff to a clinician. Built as a
-portfolio piece for a Founding Engineer role at Legion Health, an AI-native psychiatric/mental
-health telehealth company.
+loop itself** - every run ends in a `request_human_review` handoff to a clinician.
 
 > **Synthetic demo data only.** No real patients, no real PHI, no real diagnoses or prescribing
 > logic. Every patient in this repo is fictional and labeled as such in the UI. This is not
@@ -46,14 +44,24 @@ completed patient's actual `TriageToolCalled` trace (not a screenshot or a mocku
 a "Run a live triage now" button that creates a fresh synthetic patient and runs the real agent
 against it, live, rendering the trace inline as soon as it completes.
 
-That button requires a (real, if intentionally minimal) account: a password is scrypt-hashed, a
-session is an HMAC-signed cookie, and the endpoint it gates is rate-limited per account (5 runs /
-15 minutes) plus a shared daily cap across every account (`DEMO_DAILY_CAP`, default 20). None of
-that is a general access-control system - every other route in this app (the dashboard, every
-patient, the audit log) has never required login and still doesn't. The only reason an account
-exists at all is that an anonymous, un-gated button making a real LLM call on every click is a
-standing invitation to run up the site owner's API bill once `LLM_PROVIDER` is pointed at a
-hosted model - see `0002_auth_and_demo.sql`'s header comment for the full reasoning.
+That button, and now also running a real triage on any patient from its own page, both require a
+real (if intentionally minimal) account: a password is scrypt-hashed, or sign in with Google
+instead, and either way a session is an HMAC-signed cookie. Every new account gets 5 free
+triage-agent runs for life, then a $19.99/month Stripe subscription for unlimited runs. The site
+owner's own account (configured via `ADMIN_EMAILS`) always has unlimited access at no cost. On
+top of that quota, the live-demo endpoint specifically also stays rate-limited per account (5
+runs per 15 minutes) plus a shared daily cap across every account (`DEMO_DAILY_CAP`, default 20).
+
+This is a real change from an earlier version of this project, stated plainly rather than routed
+around quietly: triggering a real triage run used to be open to anyone, with no login at all. It
+now requires one, because gating a free tier behind a subscription means knowing who is asking.
+Everything else in this app (the dashboard, every patient's record, the audit log) has never
+required login and still doesn't; that part is unchanged. The underlying reason is the same one
+that motivated the original login gate: an anonymous, ungated action that makes a real LLM call
+is a standing invitation to run up the site owner's API bill once `LLM_PROVIDER` points at a
+hosted model, and now that action can cost the user their own money too, once they are past the
+free tier. See `0002_auth_and_demo.sql` and `0003_billing_and_oauth.sql`'s header comments for
+the full reasoning.
 
 ## Architecture
 
@@ -94,21 +102,22 @@ rejected.
 The triage agent gets four tools: look up prior history, flag a risk level, draft a clinical
 summary, and request human review. Every tool call is logged as its own `TriageToolCalled`
 event with input and output, in order - that log is exactly what the dashboard's Agent
-Reasoning panel renders, so a clinician (or an interviewer) can see precisely what produced a
-recommendation, not just the recommendation itself.
+Reasoning panel renders, so a clinician can see precisely what produced a recommendation, not
+just the recommendation itself.
 
 ## Tech stack
 
 | Layer | Choice | Why |
 |---|---|---|
-| Backend runtime | Node.js + TypeScript | Matches the JD's stack exactly. |
+| Backend runtime | Node.js + TypeScript | A common, production-grade choice for a typed backend. |
 | DB | Postgres via Supabase-style migrations (`supabase/migrations/`), local dev via `docker-compose` | Same schema you'd hand to a real Supabase project unchanged. |
 | API framework | Fastify | Lightweight, fast to reason about, first-class TS support. |
-| LLM providers | `FakeProvider` (deterministic, zero setup) · `AnthropicProvider` (`@anthropic-ai/sdk`, tool-calling) · `OllamaProvider` (native `/api/chat` tool-calling against a local model) | The whole demo - seed data, all 40 backend tests, the UI - runs with zero API key and zero network calls on `FakeProvider`. Flip `LLM_PROVIDER` to see either a hosted or fully local live agent. |
-| Frontend | Next.js 15 (App Router) + Tailwind v4 | Matches the JD's frontend stack. |
+| LLM providers | `FakeProvider` (deterministic, zero setup) · `AnthropicProvider` (`@anthropic-ai/sdk`, tool-calling) · `OllamaProvider` (native `/api/chat` tool-calling against a local model) | The whole demo, meaning seed data, all 77 backend tests, and the UI, runs with zero API key and zero network calls on `FakeProvider`. Flip `LLM_PROVIDER` to see either a hosted or fully local live agent. |
+| Frontend | Next.js 15 (App Router) + Tailwind v4 | A common, modern choice for a React frontend. |
 | Tests | Vitest | Fast, good TS support, minimal config. |
-| Login | scrypt-hashed passwords + an HMAC-signed session cookie (`@fastify/cookie`, `node:crypto`, no third-party auth service) | Gates only the public live-AI-demo trigger, not a general access-control layer - see [Watch the AI agent reason](#watch-the-ai-agent-reason). |
-| Abuse protection | `@fastify/rate-limit` (per-account) + a Postgres-backed daily cap | Protects the site owner's LLM API spend on the one public button that makes a real model call. |
+| Login | scrypt-hashed passwords or Google sign-in (`@fastify/oauth2`), plus an HMAC-signed session cookie (`@fastify/cookie`, `node:crypto`, no third-party auth service beyond Google itself) | Gates real triage-agent runs (the live demo and any patient's own run-triage action) behind a free-tier-then-subscription quota, not a general access-control layer; see [Watch the AI agent reason](#watch-the-ai-agent-reason). |
+| Billing | Stripe Checkout + Billing Portal (hosted; no card details ever touch this app) | $19.99/month for unlimited triage-agent runs once the 5 free lifetime runs are used; the site owner is exempt via `ADMIN_EMAILS`. |
+| Abuse protection | `@fastify/rate-limit` (per-account) + a Postgres-backed daily cap | Protects the site owner's LLM API spend on the live-demo endpoint specifically, layered on top of, not instead of, the free-tier quota above. |
 
 ## How to run locally
 
@@ -116,7 +125,7 @@ recommendation, not just the recommendation itself.
 cp .env.example .env
 docker compose up -d db        # local Postgres, migrations auto-applied
 npm install
-npm run backend:test           # 51 tests, LLM_PROVIDER=fake, no API key needed
+npm run backend:test           # 77 tests, LLM_PROVIDER=fake, no API key needed
 npm run backend:seed           # populates 4 synthetic patients
 npm run backend:dev            # API on :4000
 npm run frontend:dev           # dashboard on :3000
@@ -156,11 +165,29 @@ To see a **live** tool-calling agent instead of the scripted fake one, set in `.
   and the per-account rate limit both actually reject once hit, computed against whatever is
   already in `demo_runs` today rather than assuming a clean table, so this doesn't flake as the
   shared dev Postgres accumulates rows.
+- `quota.test.ts` (5 tests): the admin allowlist bypasses the free-tier quota entirely and never
+  increments `ai_requests_used`; a free-tier account gets exactly `FREE_REQUEST_LIMIT` successful
+  runs on `run-triage`, then a 402 with quota detail; the same holds for `/demo/run`, and a 402
+  wins over that endpoint's own 429 rate limit when both would trigger on the same request; a
+  failed run-triage attempt never consumes any of the allowance; an active subscription allows
+  unlimited runs.
+- `billing.test.ts` (7 tests): `/billing/checkout` and `/billing/portal` both require login and
+  both return a clean 503 (not a crash) when Stripe isn't configured, matching this test
+  environment; the webhook route rejects a missing or tampered signature; a genuinely signed
+  (via the Stripe SDK's own test helper, never a hand-rolled signature) `checkout.session.completed`
+  event activates a subscription, and a `customer.subscription.deleted` event cancels one.
+- `oauth.test.ts` (5 tests): the Google account-linking guardrail, tested directly against real
+  Postgres and bypassing the actual OAuth network exchange, since none of that logic needs it. A
+  new email creates a Google-only account with no `password_hash`; an existing password account
+  with no linked `google_id` yet is refused, never silently merged; a repeat sign-in with an
+  already-linked `google_id` logs in cleanly with no duplicate row created; an unverified Google
+  email is refused outright; `/auth/google` itself returns a clean 503 when Google sign-in isn't
+  configured.
 - `scripts/smoke.ts` - a manual, real-Postgres end-to-end smoke test including a deliberately
   rejected premature follow-up, to prove the invariant layer rejects bad writes even from
   legitimate-looking API calls.
 
-**51/51 passing.**
+**77/77 passing.**
 
 ## Continuous integration
 
@@ -174,13 +201,12 @@ this repo - so a fork or a PR from anyone can run it without your credentials.
 
 ## What I noticed, and how this answers it
 
-Before building this, I read through Legion Health's own site and job description closely,
-alongside how a handful of companies actually shipping AI into clinical workflows - Abridge,
-Corti, Suki, Nabla - publicly describe their architecture and safety posture. A consistent
-thread: none of them are pitching an autonomous AI doctor. Legion's own framing is closer to
-what's been called a "Tesla model" - a human clinician always in the loop, AI absorbing
-operational and administrative load incrementally. That's the model this project is built
-around, not a caricature of "AI replaces clinicians."
+Before building this, I read through how a handful of companies actually shipping AI into
+clinical workflows (Abridge, Corti, Suki, Nabla) publicly describe their architecture and
+safety posture. A consistent thread: none of them are pitching an autonomous AI doctor. The
+framing that keeps showing up is closer to what's been called a "Tesla model": a human clinician
+always in the loop, AI absorbing operational and administrative load incrementally. That's the
+model this project is built around, not a caricature of "AI replaces clinicians."
 
 Four gaps I noticed in how this space usually presents itself, and what answers each one here:
 
@@ -215,28 +241,18 @@ Four gaps I noticed in how this space usually presents itself, and what answers 
 ### What this explicitly isn't
 
 Role-based access control, encryption at rest and in transit, a signed BAA, an actual HIPAA
-compliance program, a connection to a real EHR. None of that is simulated here - named directly
-rather than glossed over. The one piece of real auth that does exist - login gating the public
-live-AI-demo button, see [Watch the AI agent reason](#watch-the-ai-agent-reason) - is there
-purely to protect the site owner's API spend, not as a stand-in for the access-control layer a
-real clinical system would need: it grants no permissions, checks no roles, and nothing else in
-the app is any less open because of it.
-
-## Mapping to the Legion Health JD
-
-- *"Architect and scale our event-driven backend... clean state machines and event streams"* →
-  `eventStore.ts`, `stateMachine.ts`.
-- *"Build real LLM agents as coworkers... tool use, retries, memory, safety rails... evaluation
-  loops"* → `agents/triageAgent.ts`, `agents/tools.ts`, `agents/llmProvider.ts`,
-  `triageAgent.test.ts`.
-- *"Shape human + AI ops UX... what happened, why, and what should happen next"* → the
-  three-panel patient detail page (`/patients/[id]`).
-- *"Define world-state & simulation... power alerting, routing, decision-making"* →
-  `projectPatientState` as the single source of derived state; the defense-in-depth escalation
-  is the alerting primitive.
-- *"Own data, safety & compliance... PHI access, agent actions, and human overrides are all
-  auditable"* → the event log's `actor_type` on every row + the `/audit-log` endpoint (with the
-  explicit caveat above: this demonstrates the pattern, not real HIPAA compliance).
+compliance program, a connection to a real EHR. None of that is simulated here, named directly
+rather than glossed over. The real auth and billing system that does exist (password or Google
+login, a free-tier-then-Stripe-subscription quota on real triage-agent runs, an admin allowlist
+for the site owner, see [Watch the AI agent reason](#watch-the-ai-agent-reason)) is there purely
+to protect the site owner's API spend and let the app charge for its own real usage, not as a
+stand-in for the access-control layer a real clinical system would need: it grants no clinical
+permissions and checks no clinical roles. Patient data itself, meaning the dashboard, every
+patient's record, and the audit log, is exactly as open and unauthenticated as it has always
+been; the one thing that changed with this pass is which specific action requires an account.
+Previously that was only the live-demo button; now triggering a real triage-agent run on any
+patient requires one too, for the same reason: it is the action that costs real money once it is
+not on the scripted fake provider.
 
 ## License
 

@@ -18,6 +18,7 @@ export function LiveDemoRunner() {
   const [llmProvider, setLlmProvider] = useState<string | undefined>(undefined);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quotaExhausted, setQuotaExhausted] = useState(false);
   const [result, setResult] = useState<PatientWorldState | null>(null);
 
   useEffect(() => {
@@ -29,11 +30,17 @@ export function LiveDemoRunner() {
   async function handleRun() {
     setPending(true);
     setError(null);
+    setQuotaExhausted(false);
     try {
       const state = await runLiveDemo();
       setResult(state);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not reach the backend.");
+      if (err instanceof ApiError && err.status === 402) {
+        setError(err.message);
+        setQuotaExhausted(true);
+      } else {
+        setError(err instanceof ApiError ? err.message : "Could not reach the backend.");
+      }
     } finally {
       setPending(false);
     }
@@ -70,6 +77,13 @@ export function LiveDemoRunner() {
       </div>
 
       {error && <p className="mt-4 text-sm text-rose-600">{error}</p>}
+      {quotaExhausted && (
+        <p className="mt-2 text-sm text-stone-600">
+          <Link href="/billing" className="font-semibold text-teal-700 hover:underline">
+            Subscribe for unlimited runs →
+          </Link>
+        </p>
+      )}
 
       {result && (
         <div className="mt-5 border-t border-stone-200 pt-5">

@@ -3,8 +3,19 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { logOut } from "@/lib/api";
+import { logOut, type SessionUser } from "@/lib/api";
 import { useSession } from "@/components/SessionProvider";
+
+// Kept as one small function rather than duplicating this branching inline
+// in both the desktop and mobile nav blocks below, since it's genuinely the
+// same three-way state (admin / subscribed / free-tier-with-a-count) either
+// place shows it.
+function usageLabel(user: SessionUser): string {
+  if (user.isAdmin) return "Admin";
+  if (user.isSubscribed) return "Pro";
+  const remaining = user.requestsRemaining ?? 0;
+  return remaining > 0 ? `${remaining} free run${remaining === 1 ? "" : "s"} left` : "Free runs used up";
+}
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -92,6 +103,17 @@ export function NavBar() {
           <div className="flex shrink-0 items-center gap-2 border-l border-stone-200 pl-4 text-sm">
             {loading ? null : user ? (
               <>
+                <Link
+                  href="/billing"
+                  className={
+                    "shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap " +
+                    (user.isAdmin || user.isSubscribed
+                      ? "bg-teal-50 text-teal-700 hover:bg-teal-100"
+                      : "bg-stone-100 text-stone-600 hover:bg-stone-200")
+                  }
+                >
+                  {usageLabel(user)}
+                </Link>
                 <span className="max-w-[140px] truncate text-stone-500" title={user.email}>
                   {user.email}
                 </span>
@@ -165,6 +187,17 @@ export function NavBar() {
           <div className="mt-3 flex items-center gap-3 border-t border-stone-200 pt-3 text-sm">
             {loading ? null : user ? (
               <>
+                <Link
+                  href="/billing"
+                  className={
+                    "shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium " +
+                    (user.isAdmin || user.isSubscribed
+                      ? "bg-teal-50 text-teal-700 hover:bg-teal-100"
+                      : "bg-stone-100 text-stone-600 hover:bg-stone-200")
+                  }
+                >
+                  {usageLabel(user)}
+                </Link>
                 <span className="flex-1 truncate text-stone-500" title={user.email}>
                   {user.email}
                 </span>
