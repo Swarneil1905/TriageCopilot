@@ -1,5 +1,5 @@
 // Minimal, dependency-free (beyond node:crypto) auth: password hashing and a
-// signed session cookie. This exists for exactly one reason -- gating the
+// signed session cookie. This exists for exactly one reason: gating the
 // public live-demo trigger (routes/demo.ts) behind a real account, so an
 // anonymous visitor can't repeatedly trigger real LLM calls on the site
 // owner's API key. It is deliberately not a general-purpose access-control
@@ -12,7 +12,23 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 
 const SCRYPT_KEYLEN = 64;
 const SESSION_COOKIE = "tc_session";
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+// Security hardening pass, finding 6: this token is a signed, stateless
+// {uid, exp} blob (see createSessionToken/verifySessionToken below); there
+// is no server-side session store, so logging out only tells the browser to
+// drop the cookie (clearSessionCookie); a copy of the token made before
+// logout (XSS, a shared machine, a proxy log) stays valid until it expires
+// no matter what the legitimate user does afterward. Real revocation would
+// mean a session_version (or a sessions table) keyed by user id, checked
+// against the DB on every verifySessionToken call, invalidated on logout;
+// more correct, but it adds a DB round trip to every authenticated request
+// for a session system whose only job is gating one rate-limited demo
+// button, not protecting anything sensitive. Given that narrow, documented
+// job, the cheaper fix is the one made here: shortened from 30 days to 1,
+// so a leaked token's exposure window is a day instead of a month, and
+// accepted stateless-until-expiry as the model rather than adding the extra
+// DB round trip. Revisit this trade explicitly (not silently) if this
+// session system is ever asked to protect something with higher stakes.
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 1 day
 
 export const SESSION_COOKIE_NAME = SESSION_COOKIE;
 
@@ -24,7 +40,7 @@ export const SESSION_COOKIE_NAME = SESSION_COOKIE;
 // generate and configure myself, not a personal credential) so sessions
 // survive a redeploy; without it, every restart silently invalidates every
 // existing session, which is a fine, self-healing failure mode for a
-// portfolio demo and a bad one for anything real -- hence the loud warning.
+// portfolio demo and a bad one for anything real, hence the loud warning.
 let ephemeralSecret: string | null = null;
 
 function getSessionSecret(): string {
@@ -102,13 +118,13 @@ export function verifySessionToken(token: string | undefined | null): string | n
 
 // The frontend and backend are deployed as two different Railway
 // subdomains (frontend-production-*.up.railway.app vs
-// backend-production-*.up.railway.app) -- different eTLD+1s from the
+// backend-production-*.up.railway.app), different eTLD+1s from the
 // browser's point of view, since *.up.railway.app is a public-suffix-style
 // multi-tenant domain. That makes every frontend -> backend fetch call
 // genuinely cross-site, so SameSite=Lax (which blocks cookies on
 // cross-site fetch/XHR, only allowing top-level navigations) would silently
 // never send the session cookie back to the backend at all. SameSite=None
-// is required for that to work, which in turn requires Secure -- browsers
+// is required for that to work, which in turn requires Secure: browsers
 // reject SameSite=None without it. Locally, frontend (localhost:3000) and
 // backend (localhost:4000) are cross-origin but same-site (same scheme,
 // same host, only the port differs), so Lax without Secure is both
