@@ -1,27 +1,6 @@
-const DIAGRAM = `
-                    +-----------------------+
-                    |  Next.js dashboard    |
-                    +-----------+-----------+
-                                | REST
-                                v
-                    +-----------------------+
-                    |  Fastify REST API     |
-                    +-----+-------------+---+
-                          |             |
-                          v             v
-        +-----------------------+   +--------------------------+
-        |   Event store          |   |  Triage agent            |
-        |   (Postgres,           |<--|  orchestrator            |
-        |    append-only)        |   |  (tool loop + retries)   |
-        +-----------+-------------+   +------------+-------------+
-                    |                              |
-                    v                              v
-        +-----------------------+   +--------------------------+
-        |   State machine         |   |  LLM provider            |
-        |   (pure projection +    |   |  fake | anthropic |      |
-        |    invariant checks)    |   |  ollama                  |
-        +-----------------------+   +--------------------------+
-`.trim();
+import { Fragment } from "react";
+import { Reveal, RevealGroup } from "@/components/Reveal";
+import { ArchitectureDiagram } from "@/components/ArchitectureDiagram";
 
 const STEPS = [
   {
@@ -32,7 +11,7 @@ const STEPS = [
   {
     title: "2. The agent proposes, tool by tool: it never decides",
     body:
-      "Each triage run gives the model four tools: look up prior history, flag a risk level, draft a clinical summary, and request human review. Every tool call is logged as its own TriageToolCalled event with its input and output, in order. That log is exactly what the dashboard's Agent Reasoning panel renders. Nothing the agent does mutates a patient's real status; it only ever produces a draft and a recommendation.",
+      "Each triage run gives the model four tools: look up prior history, flag a risk level, draft a clinical summary, and request human review. Every tool call is logged as its own TriageToolCalled event with its input and output, in order. That log is exactly what the dashboard's Agent Trace panel renders. Nothing the agent does mutates a patient's real status; it only ever produces a draft and a recommendation.",
   },
   {
     title: "3. The handoff is enforced by code, not by the prompt",
@@ -54,27 +33,31 @@ const STEPS = [
 export default function HowItWorksPage() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
-      <p className="text-sm font-medium uppercase tracking-wide text-teal-700">How it works</p>
-      <h1 className="font-display mt-2 text-3xl font-semibold text-stone-900">
-        The architecture, and why it's built this way
-      </h1>
-      <p className="mt-4 text-stone-600">
-        This isn&apos;t a CRUD app with an LLM call bolted on. The core idea is that events are
-        the only source of truth, and every write goes through one invariant-checking gate,
-        which is what makes the agent&apos;s safety guarantees structural instead of promised.
-      </p>
+      <Reveal>
+        <p className="text-sm font-medium uppercase tracking-wide text-teal-700">How it works</p>
+        <h1 className="font-display mt-2 text-3xl font-semibold text-stone-900">
+          The architecture, and why it's built this way
+        </h1>
+        <p className="mt-4 text-stone-600">
+          This isn&apos;t a CRUD app with an LLM call bolted on. The core idea is that events are
+          the only source of truth, and every write goes through one invariant-checking gate,
+          which is what makes the agent&apos;s safety guarantees structural instead of promised.
+        </p>
+      </Reveal>
 
-      <div className="surface-flat mt-8 overflow-x-auto bg-stone-50 p-4">
-        <pre className="font-mono-data text-xs leading-tight text-stone-700">{DIAGRAM}</pre>
-      </div>
+      <Reveal delayMs={90} className="mt-8">
+        <ArchitectureDiagram />
+      </Reveal>
 
       <div className="mt-10 space-y-8">
-        {STEPS.map((step) => (
-          <div key={step.title}>
-            <h2 className="font-semibold text-stone-900">{step.title}</h2>
-            <p className="mt-2 leading-relaxed text-stone-600">{step.body}</p>
-          </div>
-        ))}
+        <RevealGroup>
+          {STEPS.map((step) => (
+            <Fragment key={step.title}>
+              <h2 className="font-semibold text-stone-900">{step.title}</h2>
+              <p className="mt-2 leading-relaxed text-stone-600">{step.body}</p>
+            </Fragment>
+          ))}
+        </RevealGroup>
       </div>
     </div>
   );
