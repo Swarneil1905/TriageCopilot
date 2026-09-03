@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { NavBar } from "@/components/NavBar";
 import { SessionProvider } from "@/components/SessionProvider";
+import { CommandPalette } from "@/components/CommandPalette";
 // Self-hosted variable fonts (Space Grotesk for display, Plus Jakarta Sans
 // for body/UI text), pulled in as bundled .woff2 files via @fontsource,
 // not next/font/google or any CDN <link>. An earlier pass tried
@@ -31,6 +32,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SessionProvider>
           <DisclaimerBanner />
           <NavBar />
+          {/* Mounted once at the root, not per-page, so Cmd+K/Ctrl+K opens
+              it from anywhere in the app, not just the dashboard. */}
+          <CommandPalette />
           <main>{children}</main>
           <footer className="border-t border-stone-200 bg-white px-6 py-5 text-sm text-stone-500">
             <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">

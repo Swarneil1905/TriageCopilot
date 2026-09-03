@@ -1,11 +1,14 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { getHealth, getPatients } from "@/lib/api";
 import { AgentReasoningPanel } from "@/components/AgentReasoningPanel";
 import { LiveDemoRunner } from "@/components/LiveDemoRunner";
-import { Reveal } from "@/components/Reveal";
+import { Reveal, RevealGroup } from "@/components/Reveal";
 import { Eyebrow } from "@/components/Eyebrow";
 import { StatRing } from "@/components/StatRing";
 import { ScreenshotFrame } from "@/components/ScreenshotFrame";
+import { HeroOrbs } from "@/components/HeroOrbs";
+import { MagneticButton } from "@/components/MagneticButton";
 
 // The shared section heading size used everywhere below the hero: bumped in
 // round two of the design revamp from a flat text-3xl (30px) at every
@@ -111,7 +114,8 @@ export default async function LandingPage() {
       <section className="border-b border-stone-200">
         <div className="mx-auto max-w-6xl px-6 py-16 lg:py-24">
           <div className="surface-hero-dark px-6 py-14 sm:px-10 sm:py-16 lg:px-16 lg:py-20">
-            <div className="max-w-2xl">
+            <HeroOrbs />
+            <div className="relative max-w-2xl">
               <span className="inline-flex items-center gap-2 rounded-full border border-teal-400/30 bg-teal-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-teal-300">
                 <span className="h-1.5 w-1.5 rounded-full bg-teal-300" />
                 A synthetic care-ops prototype
@@ -127,18 +131,22 @@ export default async function LandingPage() {
                 asks nicely: because the orchestrator enforces it.
               </p>
               <div className="mt-10 flex flex-wrap items-center gap-3">
-                <Link
-                  href="/dashboard"
-                  className="rounded-lg bg-teal-300 px-5 py-2.5 text-sm font-semibold text-stone-900 transition-all hover:-translate-y-0.5 hover:bg-teal-200 hover:shadow-lg hover:shadow-teal-900/20"
-                >
-                  View the live dashboard
-                </Link>
-                <Link
-                  href="/how-it-works"
-                  className="rounded-lg border border-white/25 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-white/10"
-                >
-                  See how it works
-                </Link>
+                <MagneticButton>
+                  <Link
+                    href="/dashboard"
+                    className="rounded-lg bg-teal-300 px-5 py-2.5 text-sm font-semibold text-stone-900 transition-all hover:-translate-y-0.5 hover:bg-teal-200 hover:shadow-lg hover:shadow-teal-900/20"
+                  >
+                    View the live dashboard
+                  </Link>
+                </MagneticButton>
+                <MagneticButton>
+                  <Link
+                    href="/how-it-works"
+                    className="rounded-lg border border-white/25 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-white/10"
+                  >
+                    See how it works
+                  </Link>
+                </MagneticButton>
               </div>
               <p className="mt-8 text-xs text-stone-400">
                 {patientCount !== null && (
@@ -224,8 +232,8 @@ export default async function LandingPage() {
             </p>
             <h2 className={SECTION_HEADING}>Watch the AI agent reason</h2>
             <p className="mt-3 max-w-2xl text-base leading-relaxed text-stone-600">
-              This is the actual conversation the triage agent produces on a real intake: the same
-              chat panel, the same data, a clinician sees on a real patient page.
+              This is the actual reasoning trace the triage agent produces on a real intake: the
+              same trace, the same data, a clinician sees on a real patient page.
             </p>
           </Reveal>
 
@@ -254,7 +262,12 @@ export default async function LandingPage() {
             </ScreenshotFrame>
           </Reveal>
 
-          <div className="mt-6">
+          {/* The one genuinely interactive thing on this page gets its own
+              distinct floating plane, the new .surface-glass primitive,
+              rather than sitting as plain content between sections: a
+              translucent frame around LiveDemoRunner's own solid white
+              card, not a replacement for it. */}
+          <div className="surface-glass mt-6 p-2">
             <LiveDemoRunner />
           </div>
 
@@ -267,8 +280,8 @@ export default async function LandingPage() {
           <Reveal delayMs={160} className="mt-14 border-t border-stone-200 pt-10">
             <p className="text-sm leading-relaxed text-stone-600">
               Also real: the patient list this instance is serving right now, and one of those
-              patients&apos; complete, ordered event history, the same append-only rows the
-              conversation above reads from.
+              patients&apos; complete, ordered event history, the same append-only rows the trace
+              above reads from.
             </p>
             <div className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
@@ -333,17 +346,19 @@ export default async function LandingPage() {
             <h2 className={SECTION_HEADING}>What the architecture actually enforces</h2>
           </Reveal>
           <div className="mt-10 divide-y divide-stone-200 border-t border-stone-200">
-            {PRINCIPLES.map((p, i) => (
-              <Reveal key={p.title} delayMs={i * 90} className="grid grid-cols-[2.5rem_1fr] gap-4 py-6">
-                <span className="font-mono-data pt-0.5 text-sm text-stone-300">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <div>
-                  <h3 className="font-semibold text-stone-900">{p.title}</h3>
-                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">{p.body}</p>
-                </div>
-              </Reveal>
-            ))}
+            <RevealGroup itemClassName="grid grid-cols-[2.5rem_1fr] gap-4 py-6">
+              {PRINCIPLES.map((p, i) => (
+                <Fragment key={p.title}>
+                  <span className="font-mono-data pt-0.5 text-sm text-stone-300">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <div>
+                    <h3 className="font-semibold text-stone-900">{p.title}</h3>
+                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">{p.body}</p>
+                  </div>
+                </Fragment>
+              ))}
+            </RevealGroup>
           </div>
         </div>
       </section>
