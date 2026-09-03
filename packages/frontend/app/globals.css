@@ -64,6 +64,39 @@ body {
   }
 }
 
+/* Every interactive control in the app shares this, instead of no control
+   anywhere having a visible keyboard-focus state. Before this, five forms
+   (signup/login, new-patient, and three of ActionPanel's four forms) each
+   hand-typed their own copy of a plain bordered input with no
+   :focus-visible rule at all; components/ui/Input.tsx, Select.tsx, and
+   Textarea.tsx are the one place this class is applied now. */
+.field-control {
+  border-radius: 8px;
+  border: 1px solid #d6d3d1; /* stone-300 */
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.field-control:focus-visible {
+  outline: none;
+  border-color: var(--color-teal-600, #0d9488);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+}
+.field-control[aria-invalid="true"] {
+  border-color: #e11d48; /* rose-600 */
+}
+
+/* cmdk (the Cmd+K command palette) ships fully unstyled and is styled via
+   these bracket-attribute selectors per its own docs; without this rule its
+   dialog's backdrop is simply invisible, not just unstyled. */
+[cmdk-overlay] {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: rgba(28, 25, 23, 0.45);
+  backdrop-filter: blur(2px);
+}
+
 /* A monospace stack for anything that's literally data (event types, ids,
    code snippets) rather than prose: reinforces "this is a real running
    system," not a decorative choice. */
@@ -113,6 +146,19 @@ body {
   border-radius: 14px;
 }
 
+/* A translucent, blurred surface for content that should read as floating
+   above the page rather than sitting flush with it. NavBar's own
+   scroll-blur treatment already does this inline; this makes the same idea
+   reusable anywhere else it earns its keep (see the live-demo section in
+   page.tsx, the one genuinely interactive thing on the landing page). */
+.surface-glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(28, 25, 23, 0.08);
+  border-radius: 16px;
+}
+
 /* The landing page hero's dark panel: the entire hero lives inside this,
    not just a side card. This is the one deliberately loud, high contrast
    surface on the whole site, on purpose, so the hero reads as a real
@@ -123,6 +169,8 @@ body {
    near-black panel reads as generic dark-mode. Kept as a gradient rather
    than Nabla's flat fill so it still has depth without a photograph. */
 .surface-hero-dark {
+  position: relative; /* anchors HeroOrbs.tsx's absolutely-positioned orbs */
+  overflow: hidden; /* clips them to this panel's own rounded corners */
   background: radial-gradient(130% 160% at 12% -10%, #123a2e 0%, #0a2b21 45%, #052e22 100%);
   border-radius: 28px;
   box-shadow:

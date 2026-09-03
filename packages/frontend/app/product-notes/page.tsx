@@ -1,3 +1,6 @@
+import { Fragment } from "react";
+import { Reveal, RevealGroup } from "@/components/Reveal";
+
 const GAPS = [
   {
     gap: "No visible crisis or safety-escalation path",
@@ -11,7 +14,7 @@ const GAPS = [
     note:
       "\"The AI suggested X\" is easy to say and hard to actually show. A few clinical-AI products (Abridge's \"Linked Evidence\" is the clearest public example) have started making the connection between an AI output and the evidence behind it something a clinician can click into, not just trust.",
     answer:
-      "Every patient's Agent Reasoning panel is the literal, ordered sequence of tool calls the agent made for its most recent run, input and output, including any retries, reconstructed straight from the event log. It's the same idea in spirit: click into a case, see exactly what produced the recommendation, not just the recommendation itself.",
+      "Every patient's Agent Trace panel is the literal, ordered sequence of tool calls the agent made for its most recent run, input and output, including any retries, reconstructed straight from the event log. It's the same idea in spirit: click into a case, see exactly what produced the recommendation, not just the recommendation itself.",
   },
   {
     gap: "No visible intake or triage-routing logic",
@@ -23,7 +26,7 @@ const GAPS = [
   {
     gap: "No visible clinical co-pilot or documentation surface",
     note:
-      "Companies actually shipping in this space (Suki, Abridge, Nabla) are explicit that they're building scribes and co-workers, not autonomous decision-makers. The JD for this role describes the same thing: agents as \"operational co-workers.\"",
+      "Companies actually shipping in this space (Suki, Abridge, Nabla) are explicit that they're building scribes and co-workers, not autonomous decision-makers, and that's the framing this project takes seriously too: agents as operational co-workers, not decision-makers.",
     answer:
       "The agent's draft_clinical_summary tool produces exactly that: a draft, explicitly never shown to the patient or auto-applied, that a clinician reviews, edits, or rejects through the same three-panel view as everything else. It's a co-worker's first pass, not a decision.",
   },
@@ -60,54 +63,66 @@ const NEXT_STEPS = [
 export default function ProductNotesPage() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
-      <p className="text-sm font-medium uppercase tracking-wide text-teal-700">Product notes</p>
-      <h1 className="font-display mt-2 text-3xl font-semibold text-stone-900">
-        What I noticed, and how this answers it
-      </h1>
-      <p className="mt-4 leading-relaxed text-stone-600">
-        Before building this, I read through Legion Health&apos;s own site and job description
-        closely, alongside how a handful of companies actually shipping AI into clinical
-        workflows (Abridge, Corti, Suki, Nabla) publicly describe their architecture and
-        safety posture. A consistent thread: none of them are pitching an autonomous AI doctor.
-        Legion&apos;s own framing is closer to what they&apos;ve called a &quot;Tesla
-        model&quot;: a human clinician always in the loop, AI absorbing operational and
-        administrative load incrementally. That&apos;s the model this project is built around,
-        not a caricature of &quot;AI replaces clinicians&quot; that would be easy to build and
-        wrong to ship.
-      </p>
+      <Reveal>
+        <p className="text-sm font-medium uppercase tracking-wide text-teal-700">Product notes</p>
+        <h1 className="font-display mt-2 text-3xl font-semibold text-stone-900">
+          What I noticed, and how this answers it
+        </h1>
+        <p className="mt-4 leading-relaxed text-stone-600">
+          Before building this, I read through how a handful of companies actually shipping AI into
+          clinical workflows (Abridge, Corti, Suki, Nabla) publicly describe their architecture and
+          safety posture. A consistent thread: none of them are pitching an autonomous AI doctor.
+          The framing that keeps showing up is closer to what&apos;s been called a &quot;Tesla
+          model&quot;: a human clinician always in the loop, AI absorbing operational and
+          administrative load incrementally. That&apos;s the model this project is built around,
+          not a caricature of &quot;AI replaces clinicians&quot; that would be easy to build and
+          wrong to ship.
+        </p>
+      </Reveal>
 
-      <h2 className="font-display mt-12 text-xl font-semibold text-stone-900">
-        Four gaps I noticed in how this space usually presents itself
-      </h2>
-      <div className="mt-6 space-y-6">
-        {GAPS.map((g) => (
-          <div key={g.gap} className="surface-flat p-5">
-            <h3 className="font-semibold text-stone-900">{g.gap}</h3>
-            <p className="mt-2 text-sm leading-relaxed text-stone-500">{g.note}</p>
-            <p className="mt-3 text-sm leading-relaxed text-stone-700">
-              <span className="font-medium text-teal-700">How TriageCopilot answers it: </span>
-              {g.answer}
-            </p>
-          </div>
-        ))}
+      <Reveal>
+        <h2 className="font-display mt-12 text-xl font-semibold text-stone-900">
+          Four gaps I noticed in how this space usually presents itself
+        </h2>
+      </Reveal>
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <RevealGroup itemClassName="surface-flat p-5">
+          {GAPS.map((g) => (
+            <div key={g.gap}>
+              <h3 className="font-semibold text-stone-900">{g.gap}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-stone-500">{g.note}</p>
+              <p className="mt-3 text-sm leading-relaxed text-stone-700">
+                <span className="font-medium text-teal-700">How TriageCopilot answers it: </span>
+                {g.answer}
+              </p>
+            </div>
+          ))}
+        </RevealGroup>
       </div>
 
-      <h2 className="font-display mt-12 text-xl font-semibold text-stone-900">
-        What I&apos;d add at production scale
-      </h2>
-      <p className="mt-3 text-sm text-stone-600">
-        A prototype should say what it isn&apos;t, not just what it is. In roughly the order
-        I&apos;d tackle them:
-      </p>
-      <div className="mt-6 space-y-6">
-        {NEXT_STEPS.map((s, i) => (
-          <div key={s.title}>
-            <h3 className="font-semibold text-stone-900">
-              {i + 1}. {s.title}
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-stone-600">{s.body}</p>
-          </div>
-        ))}
+      <Reveal>
+        <h2 className="font-display mt-12 text-xl font-semibold text-stone-900">
+          What I&apos;d add at production scale
+        </h2>
+        <p className="mt-3 text-sm text-stone-600">
+          A prototype should say what it isn&apos;t, not just what it is. In roughly the order
+          I&apos;d tackle them:
+        </p>
+      </Reveal>
+      <div className="mt-6 divide-y divide-stone-200 border-t border-stone-200">
+        <RevealGroup itemClassName="grid grid-cols-[2.5rem_1fr] gap-4 py-6">
+          {NEXT_STEPS.map((s, i) => (
+            <Fragment key={s.title}>
+              <span className="font-mono-data pt-0.5 text-sm text-stone-300">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <div>
+                <h3 className="font-semibold text-stone-900">{s.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-stone-600">{s.body}</p>
+              </div>
+            </Fragment>
+          ))}
+        </RevealGroup>
       </div>
     </div>
   );

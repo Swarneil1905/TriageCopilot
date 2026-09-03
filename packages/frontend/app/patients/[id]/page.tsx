@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ApiError, getHealth, getPatient, providerLabel } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
 import { RiskBadge } from "@/components/RiskBadge";
+import { StatusPipeline } from "@/components/StatusPipeline";
 import { Timeline } from "@/components/Timeline";
 import { AgentReasoningPanel } from "@/components/AgentReasoningPanel";
 import { ActionPanel } from "@/components/ActionPanel";
@@ -31,6 +32,15 @@ export default async function PatientDetailPage({
           <h1 className="text-xl font-semibold text-stone-900">{patient.displayName}</h1>
           <StatusBadge status={patient.status} />
           <RiskBadge riskLevel={patient.riskLevel} />
+        </div>
+
+        {/* The state machine's own status pipeline, rendered as a real
+            stepper rather than only the single-word badge above: what
+            stage this patient is at, at a glance, with the two non-linear
+            outcomes (urgent_review, clinician_rejected) drawn as their own
+            branch instead of a straight line pretending they aren't. */}
+        <div className="mt-5 overflow-x-auto">
+          <StatusPipeline status={patient.status} size="lg" />
         </div>
 
         {patient.safetyAlert && (
@@ -72,9 +82,9 @@ export default async function PatientDetailPage({
               <div>
                 <h3 className="font-semibold text-stone-900">One audit trail</h3>
                 <p className="mt-1 text-sm leading-relaxed text-stone-600">
-                  The conversation in the rail, the timeline on the left, and every event in between all render
-                  from the same append only event log, so there is no separate audit system that can ever drift
-                  out of sync with what actually ran.
+                  The trace in the rail, the timeline on the left, and every event in between all render from the
+                  same append only event log, so there is no separate audit system that can ever drift out of sync
+                  with what actually ran.
                 </p>
               </div>
             </div>
@@ -109,7 +119,7 @@ export default async function PatientDetailPage({
           <div className="flex flex-col gap-6 lg:sticky lg:top-6">
             <section className="surface-rail p-4">
               <h2 className="mb-3 px-1 text-sm font-semibold uppercase tracking-wide text-stone-500">
-                Agent conversation
+                Agent trace
               </h2>
               <AgentReasoningPanel events={patient.events} llmProvider={llmProvider} />
             </section>
