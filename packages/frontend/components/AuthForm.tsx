@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { API_BASE_URL, ApiError, logIn, signUp } from "@/lib/api";
 import { useSession } from "@/components/SessionProvider";
+import { Label } from "@/components/ui/Label";
+import { Input } from "@/components/ui/Input";
+import { FieldError } from "@/components/ui/FieldError";
 
 // Google's own OAuth callback (routes/oauth.ts) redirects back here with one
 // of these two codes when it refuses to sign someone in, rather than a raw
@@ -72,34 +75,32 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-stone-700">
-            Email
-          </label>
-          <input
+          <Label htmlFor="email">Email</Label>
+          <Input
             id="email"
             name="email"
             type="email"
             required
             autoFocus
-            className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm"
+            invalid={Boolean(error)}
+            className="mt-1"
           />
         </div>
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-stone-700">
-            Password
-          </label>
-          <input
+          <Label htmlFor="password">Password</Label>
+          <Input
             id="password"
             name="password"
             type="password"
             required
             minLength={8}
-            className="mt-1 w-full rounded-md border border-stone-300 px-3 py-2 text-sm"
+            invalid={Boolean(error)}
+            className="mt-1"
           />
           {mode === "signup" && <p className="mt-1 text-xs text-stone-500">At least 8 characters.</p>}
         </div>
 
-        {error && <p className="text-sm text-rose-600">{error}</p>}
+        <FieldError message={error} />
 
         <button
           type="submit"

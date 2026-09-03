@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { DomainEvent } from "@/lib/api";
+import type { DomainEvent, RiskLevel } from "@/lib/api";
 import { providerLabel } from "@/lib/api";
+import { RiskBadge } from "@/components/RiskBadge";
 
 interface ToolCallPayload {
   tool_name?: string;
@@ -38,12 +39,6 @@ function formatClock(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
-const RISK_STYLES: Record<string, { bubble: string; badge: string }> = {
-  low: { bubble: "border-emerald-200 bg-emerald-50", badge: "bg-emerald-100 text-emerald-800" },
-  moderate: { bubble: "border-amber-200 bg-amber-50", badge: "bg-amber-100 text-amber-800" },
-  high: { bubble: "border-rose-200 bg-rose-50", badge: "bg-rose-100 text-rose-800" },
-};
-
 const STEP_LABELS: Record<string, string> = {
   get_patient_history: "Looked up prior history",
   flag_risk_level: "Flagged a risk level",
@@ -53,10 +48,10 @@ const STEP_LABELS: Record<string, string> = {
 
 /** Plain-language line for one reasoning step, falling back to naming the
  * raw field for anything unrecognized. This is the only rendering this
- * panel ever does for a step's detail: there is still no separate JSON
- * view anywhere in this component. A chat shaped panel does not change
- * that, only the container changed: the people reading this are clinical
- * staff and site visitors, not engineers inspecting a raw payload. */
+ * panel ever does for a step's detail by default: the raw input/output is
+ * still available, just behind the "View raw step" disclosure below, so an
+ * engineer or a technically curious clinician can go one click deeper
+ * without that JSON being load-bearing for everyone else reading this. */
 function StepDetail({
   toolName,
   input,
@@ -94,25 +89,74 @@ function StepDetail({
   }
 }
 
-/** A small filled sparkle mark, not an emoji or an external icon font, so
- * the one avatar this panel needs stays a single inline SVG with no new
- * dependency. */
-function AgentAvatar({ tone = "solid" }: { tone?: "solid" | "muted" }) {
+/** A small, collapsed-by-default disclosure exposing the exact structured
+ * input/output a tool call ran with. This is the "Linked Evidence" idea
+ * product-notes.tsx already cites approvingly, made literal here: every
+ * plain-language claim above has real structured evidence one click away,
+ * without that evidence competing with the plain-language summary for a
+ * first-time reader's attention. */
+function RawStepDisclosure({ input, output }: { input?: Record<string, unknown>; output?: Record<string, unknown> }) {
+  const [open, setOpen] = useState(false);
+  const hasPayload = (input && Object.keys(input).length > 0) || (output && Object.keys(output).length > 0);
+  if (!hasPayload) return null;
+
   return (
-    <div
-      className={
-        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full " +
-        (tone === "solid" ? "bg-teal-700 text-white" : "bg-stone-100 text-stone-400")
-      }
-    >
-      <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
-        <path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2z" />
-      </svg>
+    <div className="mt-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-[11px] font-medium text-teal-700 hover:underline"
+      >
+        {open ? "Hide raw step" : "View raw step"}
+      </button>
+      {open && (
+        <pre className="mt-1.5 overflow-x-auto rounded-md bg-stone-50 p-2 text-[11px] leading-relaxed text-stone-700 ring-1 ring-stone-200">
+          {JSON.stringify({ input, output }, null, 2)}
+        </pre>
+      )}
     </div>
   );
 }
 
-type ChatItem =
+/** The small circular rail marker every step/error/handoff row sits on,
+ * matching Timeline.tsx's own "icon in a circle on a left-hand rail" idiom
+ * (see ACTOR_ICON_SVG there) rather than a fourth, new visual language for
+ * "here is a marker on a vertical line." A plain step gets its ordinal
+ * number, the same numbered-rail idea already used for "How this is built"
+ * and "What the architecture actually enforces" elsewhere in the app. */
+function RailMarker({ tone, children }: { tone: "step" | "error" | "handoff"; children: React.ReactNode }) {
+  const toneClass =
+    tone === "error"
+      ? "bg-amber-100 text-amber-700"
+      : tone === "handoff"
+        ? "bg-teal-100 text-teal-700"
+        : "bg-stone-100 text-stone-500";
+  return (
+    <span
+      className={"absolute left-0 top-0.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold " + toneClass}
+    >
+      {children}
+    </span>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a1 1 0 00.86 1.5h18.64a1 1 0 00.86-1.5L13.71 3.86a1 1 0 00-1.72 0z" />
+    </svg>
+  );
+}
+
+function HandoffIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+type TraceItem =
   | { kind: "step"; event: DomainEvent<ToolCallPayload>; prevEvent?: DomainEvent }
   | { kind: "error"; event: DomainEvent<{ error?: string; escalated?: boolean }>; prevEvent?: DomainEvent }
   | { kind: "handoff"; event: DomainEvent<{ reason?: string }>; prevEvent?: DomainEvent };
@@ -124,12 +168,12 @@ export function AgentReasoningPanel({
 }: {
   events: DomainEvent[];
   llmProvider?: string;
-  /** The landing page embeds this same panel specifically to show the
-   * conversation off to a visitor, so it gets a taller message window; a
-   * real patient page keeps it more compact in the sticky rail. Either way
-   * the panel auto scrolls to its newest message on load, which is the
-   * actual assessment, the same way opening any chat app lands you on the
-   * latest message rather than the start of the history. */
+  /** The landing page embeds this same panel specifically to show the trace
+   * off to a visitor, so it gets a taller window; a real patient page keeps
+   * it more compact in the sticky rail. Either way the panel auto-scrolls
+   * to its newest step on load, the same reasonable default a log viewer or
+   * a CI run's step list uses: land on the latest entry, not the start of
+   * the history. */
   defaultTraceOpen?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -139,26 +183,26 @@ export function AgentReasoningPanel({
   const runTimeline = runId ? events.filter((e) => e.runId === runId) : [];
   const finished = runTimeline.some((e) => e.type === "TriageAgentCompleted" || e.type === "HumanReviewRequested");
 
-  const items: ChatItem[] = runTimeline
+  const items: TraceItem[] = runTimeline
     .map((event, i) => ({ event, prevEvent: runTimeline[i - 1] }))
     .filter(
       ({ event }) =>
         event.type === "TriageToolCalled" || event.type === "AgentErrorOccurred" || event.type === "HumanReviewRequested"
     )
     .map(({ event, prevEvent }) => {
-      if (event.type === "AgentErrorOccurred") return { kind: "error", event, prevEvent } as ChatItem;
-      if (event.type === "HumanReviewRequested") return { kind: "handoff", event, prevEvent } as ChatItem;
-      return { kind: "step", event: event as DomainEvent<ToolCallPayload>, prevEvent } as ChatItem;
+      if (event.type === "AgentErrorOccurred") return { kind: "error", event, prevEvent } as TraceItem;
+      if (event.type === "HumanReviewRequested") return { kind: "handoff", event, prevEvent } as TraceItem;
+      return { kind: "step", event: event as DomainEvent<ToolCallPayload>, prevEvent } as TraceItem;
     });
 
   const toolCalls = items
-    .filter((i): i is Extract<ChatItem, { kind: "step" }> => i.kind === "step")
+    .filter((i): i is Extract<TraceItem, { kind: "step" }> => i.kind === "step")
     .map((i) => i.event);
   const totalMs = msBetween(runTimeline[0], runTimeline[runTimeline.length - 1]);
 
-  // Auto scroll to the newest message once the message list has actually
-  // rendered, exactly like opening any real chat app: you land on the
-  // latest message, not the start of the conversation.
+  // Auto-scroll to the newest step once the step list has actually
+  // rendered: a reasonable default for any log/trace viewer, landing on the
+  // most recent entry rather than the start of the run.
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -169,21 +213,20 @@ export function AgentReasoningPanel({
   }, [mounted, items.length]);
 
   const statusLine = !runId
-    ? "No conversation yet"
+    ? "No run yet"
     : items.length === 0 && !finished
       ? "Starting…"
       : !finished
-        ? "Live · thinking"
+        ? "Running…"
         : `Completed in ${formatDuration(totalMs)} · ${toolCalls.length} step${toolCalls.length === 1 ? "" : "s"}`;
 
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-stone-200 bg-white">
-      {/* Chat header, the same shape as any real messaging app: an avatar,
-          the participant's name, and a one-line status underneath it. */}
+      {/* A named process that ran, not a chat participant: no avatar, no
+          persona name, just what this panel is and its real status. */}
       <div className="flex items-center gap-3 border-b border-stone-100 px-4 py-3">
-        <AgentAvatar />
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-stone-900">Triage Agent</p>
+          <p className="truncate text-sm font-semibold text-stone-900">Agent trace</p>
           <p className="truncate text-xs text-stone-400">{statusLine}</p>
         </div>
         <span className="ml-auto hidden shrink-0 text-xs text-stone-400 sm:inline">
@@ -191,12 +234,13 @@ export function AgentReasoningPanel({
         </span>
       </div>
 
-      {/* Message list: a fixed height scroll region so this reads as a real
-          chat window rather than a page section that keeps growing, with
-          the newest message (the actual assessment) already in view. */}
+      {/* Step list: a vertical trace, the same rail-with-circle-markers
+          idiom Timeline.tsx already uses for the main event log, so the two
+          panels that sit side by side on a patient page read as one
+          designed system rather than two different eras of the app. */}
       <div
         ref={scrollRef}
-        className={"space-y-3 overflow-y-auto px-4 py-4 " + (defaultTraceOpen ? "max-h-[30rem]" : "max-h-[20rem]")}
+        className={"overflow-y-auto px-4 py-4 " + (defaultTraceOpen ? "max-h-[30rem]" : "max-h-[20rem]")}
       >
         {!runId && <p className="py-6 text-center text-sm text-stone-400">No triage run yet for this patient.</p>}
 
@@ -204,84 +248,74 @@ export function AgentReasoningPanel({
           <p className="py-6 text-center text-sm text-stone-400">Triage agent is starting up…</p>
         )}
 
-        {items.map((item, i) => {
-          if (item.kind === "error") {
-            const p = item.event.payload;
-            return (
-              <div key={item.event.id} className="flex justify-center">
-                <span className="max-w-[85%] rounded-full bg-stone-100 px-3 py-1 text-center text-xs text-stone-500">
-                  Transient model error, retried automatically.
-                  {p.escalated ? " Retries were exhausted, so this run was escalated for review." : ""}
-                </span>
-              </div>
-            );
-          }
+        {items.length > 0 && (
+          <ol className="space-y-4 border-l border-stone-200 pl-2">
+            {items.map((item, i) => {
+              if (item.kind === "error") {
+                const p = item.event.payload;
+                return (
+                  <li key={item.event.id} className="relative pl-8">
+                    <RailMarker tone="error">
+                      <WarningIcon />
+                    </RailMarker>
+                    <p className="text-xs text-stone-500">
+                      Transient model error, retried automatically.
+                      {p.escalated ? " Retries were exhausted, so this run was escalated for review." : ""}
+                    </p>
+                  </li>
+                );
+              }
 
-          if (item.kind === "handoff") {
-            const p = item.event.payload;
-            const modelRequested = p.reason === "model-requested";
-            return (
-              <div key={item.event.id} className="flex justify-center py-1">
-                <div className="flex max-w-[90%] items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-center text-xs text-stone-500">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    className="h-3.5 w-3.5 shrink-0 text-stone-400"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>
-                    Handed off for human review,{" "}
-                    {modelRequested ? "requested by the agent itself" : "enforced by the orchestrator regardless of what the agent did"}.
-                  </span>
-                </div>
-              </div>
-            );
-          }
+              if (item.kind === "handoff") {
+                const p = item.event.payload;
+                const modelRequested = p.reason === "model-requested";
+                return (
+                  <li key={item.event.id} className="relative pl-8">
+                    <RailMarker tone="handoff">
+                      <HandoffIcon />
+                    </RailMarker>
+                    <p className="text-xs text-stone-500">
+                      Handed off for human review,{" "}
+                      {modelRequested ? "requested by the agent itself" : "enforced by the orchestrator regardless of what the agent did"}.
+                    </p>
+                  </li>
+                );
+              }
 
-          const p = item.event.payload;
-          const durationMs = msBetween(item.prevEvent, item.event);
-          const label = (p.tool_name && STEP_LABELS[p.tool_name]) ?? p.tool_name ?? "Step";
-          const riskLevel =
-            p.tool_name === "flag_risk_level" ? String(p.input?.risk_level ?? p.output?.risk_level ?? "") : null;
-          const riskStyle = riskLevel ? RISK_STYLES[riskLevel] : null;
+              const p = item.event.payload;
+              const durationMs = msBetween(item.prevEvent, item.event);
+              const label = (p.tool_name && STEP_LABELS[p.tool_name]) ?? p.tool_name ?? "Step";
+              const riskLevel =
+                p.tool_name === "flag_risk_level"
+                  ? (String(p.input?.risk_level ?? p.output?.risk_level ?? "") as RiskLevel | "")
+                  : null;
 
-          return (
-            <div key={item.event.id} className="flex items-start gap-2.5">
-              <AgentAvatar tone="muted" />
-              <div className="min-w-0 max-w-[85%]">
-                <div
-                  className={
-                    "rounded-2xl rounded-tl-sm border px-3.5 py-2.5 text-sm " +
-                    (riskStyle ? riskStyle.bubble : "border-stone-100 bg-stone-50")
-                  }
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-stone-800">{label}</span>
-                    {riskLevel && riskStyle && (
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${riskStyle.badge}`}>
-                        {riskLevel} risk
-                      </span>
-                    )}
+              return (
+                <li key={item.event.id} className="relative pl-8">
+                  <RailMarker tone="step">{i + 1}</RailMarker>
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium text-stone-900">{label}</span>
+                      {riskLevel && <RiskBadge riskLevel={riskLevel} />}
+                    </div>
+                    <span className="font-mono-data shrink-0 text-[11px] text-stone-400">
+                      {formatClock(item.event.createdAt)} · {formatDuration(durationMs)}
+                      {i === 0 && " to first step"}
+                    </span>
                   </div>
-                  <div className="mt-1 text-stone-600">
+                  <div className="mt-1 text-sm text-stone-600">
                     <StepDetail toolName={p.tool_name} input={p.input} output={p.output} />
                   </div>
-                </div>
-                <p className="mt-1 ml-1 text-[11px] text-stone-400">
-                  {formatClock(item.event.createdAt)} · {formatDuration(durationMs)}
-                  {i === 0 && " to first step"}
-                </p>
-              </div>
-            </div>
-          );
-        })}
+                  <RawStepDisclosure input={p.input} output={p.output} />
+                </li>
+              );
+            })}
+          </ol>
+        )}
       </div>
 
       <div className="border-t border-stone-100 px-4 py-2 text-center text-[11px] text-stone-400">
-        Read-only replay of a logged run. Nothing here can be edited or sent.
+        Read-only trace of a completed run. Nothing here can be edited or resent.
       </div>
     </div>
   );

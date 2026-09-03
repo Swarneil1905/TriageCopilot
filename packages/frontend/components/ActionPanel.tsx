@@ -12,11 +12,11 @@ import {
   type PatientWorldState,
 } from "@/lib/api";
 import { useSession } from "@/components/SessionProvider";
-
-function ErrorText({ message }: { message: string | null }) {
-  if (!message) return null;
-  return <p className="mt-2 text-sm text-rose-600">{message}</p>;
-}
+import { Label } from "@/components/ui/Label";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { Textarea } from "@/components/ui/Textarea";
+import { FieldError } from "@/components/ui/FieldError";
 
 function SubmitButton({ pending, children }: { pending: boolean; children: React.ReactNode }) {
   return (
@@ -55,41 +55,30 @@ function IntakeForm({ patientId }: { patientId: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-2">
-      <label className="block text-sm">
-        <span className="text-stone-700">Chief complaint</span>
-        <textarea
+    <form onSubmit={onSubmit} className="space-y-3">
+      <div>
+        <Label htmlFor="chief_complaint">Chief complaint</Label>
+        <Textarea
+          id="chief_complaint"
           name="chief_complaint"
           required
           rows={2}
-          className="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
+          className="mt-1"
           placeholder="What brought the patient in today?"
         />
-      </label>
+      </div>
       <div className="flex gap-3">
-        <label className="block text-sm">
-          <span className="text-stone-700">PHQ-9</span>
-          <input
-            name="phq9_score"
-            type="number"
-            min={0}
-            max={27}
-            className="mt-1 block w-20 rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="text-stone-700">GAD-7</span>
-          <input
-            name="gad7_score"
-            type="number"
-            min={0}
-            max={21}
-            className="mt-1 block w-20 rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-          />
-        </label>
+        <div>
+          <Label htmlFor="phq9_score">PHQ-9</Label>
+          <Input id="phq9_score" name="phq9_score" type="number" min={0} max={27} className="mt-1 w-20" />
+        </div>
+        <div>
+          <Label htmlFor="gad7_score">GAD-7</Label>
+          <Input id="gad7_score" name="gad7_score" type="number" min={0} max={21} className="mt-1 w-20" />
+        </div>
       </div>
       <SubmitButton pending={pending}>Submit intake</SubmitButton>
-      <ErrorText message={error} />
+      <FieldError message={error} />
     </form>
   );
 }
@@ -156,7 +145,7 @@ function RunTriageButton({ patientId }: { patientId: string }) {
       >
         {pending ? "Running triage agent…" : "Run triage agent"}
       </button>
-      <ErrorText message={error} />
+      <FieldError message={error} />
       {quotaExhausted && (
         <p className="mt-2 text-sm text-stone-600">
           <Link href="/billing" className="font-semibold text-teal-700 hover:underline">
@@ -193,39 +182,25 @@ function ClinicianDecisionForm({ patientId }: { patientId: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-2">
-      <label className="block text-sm">
-        <span className="text-stone-700">Your name</span>
-        <input
-          name="clinician_name"
-          required
-          className="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-          placeholder="Dr. ..."
-        />
-      </label>
-      <label className="block text-sm">
-        <span className="text-stone-700">Decision</span>
-        <select
-          name="decision"
-          required
-          className="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-        >
+    <form onSubmit={onSubmit} className="space-y-3">
+      <div>
+        <Label htmlFor="clinician_name">Your name</Label>
+        <Input id="clinician_name" name="clinician_name" required className="mt-1" placeholder="Dr. ..." />
+      </div>
+      <div>
+        <Label htmlFor="decision">Decision</Label>
+        <Select id="decision" name="decision" required className="mt-1">
           <option value="approved">Approve the agent&apos;s draft</option>
           <option value="modified">Approve with modifications</option>
           <option value="rejected">Reject: needs re-triage</option>
-        </select>
-      </label>
-      <label className="block text-sm">
-        <span className="text-stone-700">Note</span>
-        <textarea
-          name="note"
-          rows={2}
-          className="mt-1 block w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-          placeholder="Optional clinical note"
-        />
-      </label>
+        </Select>
+      </div>
+      <div>
+        <Label htmlFor="note">Note</Label>
+        <Textarea id="note" name="note" rows={2} className="mt-1" placeholder="Optional clinical note" />
+      </div>
       <SubmitButton pending={pending}>Record decision</SubmitButton>
-      <ErrorText message={error} />
+      <FieldError message={error} />
     </form>
   );
 }
@@ -254,32 +229,23 @@ function ScheduleFollowUpForm({ patientId }: { patientId: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-2">
+    <form onSubmit={onSubmit} className="space-y-3">
       <div className="flex gap-3">
-        <label className="block text-sm">
-          <span className="text-stone-700">Date</span>
-          <input
-            name="date"
-            type="date"
-            required
-            className="mt-1 block rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="text-stone-700">Method</span>
-          <select
-            name="method"
-            required
-            className="mt-1 block rounded-md border border-stone-300 px-2 py-1.5 text-sm"
-          >
+        <div>
+          <Label htmlFor="date">Date</Label>
+          <Input id="date" name="date" type="date" required className="mt-1 w-auto" />
+        </div>
+        <div>
+          <Label htmlFor="method">Method</Label>
+          <Select id="method" name="method" required className="mt-1 w-auto">
             <option value="video">Video</option>
             <option value="phone">Phone</option>
             <option value="in_person">In person</option>
-          </select>
-        </label>
+          </Select>
+        </div>
       </div>
       <SubmitButton pending={pending}>Schedule follow-up</SubmitButton>
-      <ErrorText message={error} />
+      <FieldError message={error} />
     </form>
   );
 }

@@ -3,10 +3,12 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, createPatient } from "@/lib/api";
+import { Input } from "@/components/ui/Input";
+import { FieldError } from "@/components/ui/FieldError";
 
-export function NewPatientForm() {
+export function NewPatientForm({ autoOpen = false }: { autoOpen?: boolean }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,12 +41,13 @@ export function NewPatientForm() {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-wrap items-start gap-2">
-      <input
+      <Input
         name="display_name"
         required
         autoFocus
         placeholder="e.g. Taylor Nguyen (synthetic)"
-        className="rounded-md border border-stone-300 px-2 py-1.5 text-sm"
+        className="w-auto"
+        invalid={Boolean(error)}
       />
       <button
         type="submit"
@@ -60,7 +63,7 @@ export function NewPatientForm() {
       >
         Cancel
       </button>
-      {error && <p className="w-full text-sm text-rose-600">{error}</p>}
+      {error && <FieldError message={error} />}
     </form>
   );
 }
